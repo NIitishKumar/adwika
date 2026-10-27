@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag } from 'lucide-react';
+import { Menu, X, ShoppingBag, User, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { RegionOption } from '@/types';
-
 interface NavbarProps {
-  currentRegion: RegionOption;
-  onOpenRegionModal: () => void;
   onOpenAccountModal: () => void;
   onOpenSearchModal: () => void;
   onOpenCart: () => void;
@@ -14,8 +10,6 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentRegion,
-  onOpenRegionModal,
   onOpenAccountModal,
   onOpenSearchModal,
   onOpenCart,
@@ -143,32 +137,27 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Right Navigation / Controls - matching prototype */}
-        <div className="flex items-center gap-6 md:gap-8">
-          {/* Region / Currency */}
+        <div className="flex items-center gap-5 sm:gap-6 md:gap-7">
+          {/* Search */}
           <button
-            onClick={onOpenRegionModal}
-            className="hidden sm:inline-flex items-center gap-1.5 text-[11px] tracking-luxury uppercase text-neutral-300 hover:text-white transition-colors"
-            title="Switch region and currency"
+            onClick={onOpenSearchModal}
+            className="text-neutral-300 hover:text-white transition-colors p-1 flex items-center gap-1.5 text-[11px] tracking-luxury uppercase"
+            aria-label="Search Collection"
+            title="Search Archive"
           >
-            <span>{currentRegion.country.toUpperCase()}</span>
-            <span className="text-neutral-500">·</span>
-            <span>{currentRegion.currency}</span>
+            <Search size={15} />
+            <span className="hidden xl:inline">SEARCH</span>
           </button>
 
           {/* Account */}
           <button
             onClick={onOpenAccountModal}
-            className="text-[11px] tracking-luxury uppercase text-neutral-300 hover:text-white transition-colors"
+            className="text-neutral-300 hover:text-white transition-colors p-1 flex items-center gap-1.5 text-[11px] tracking-luxury uppercase"
+            aria-label="Account Login"
+            title="Client Sanctuary"
           >
-            ACCOUNT
-          </button>
-
-          {/* Search */}
-          <button
-            onClick={onOpenSearchModal}
-            className="text-[11px] tracking-luxury uppercase text-neutral-300 hover:text-white transition-colors"
-          >
-            SEARCH
+            <User size={15} />
+            <span className="hidden lg:inline">ACCOUNT</span>
           </button>
 
           {/* Shopping Bag */}
@@ -212,24 +201,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {link.label}
               </button>
             ))}
-            <div className="pt-4 border-t border-neutral-800 flex justify-center gap-6">
-              <button
-                onClick={() => {
-                  onOpenRegionModal();
-                  setMobileMenuOpen(false);
-                }}
-                className="text-xs tracking-wider uppercase text-neutral-400 hover:text-white"
-              >
-                {currentRegion.country} · {currentRegion.currency}
-              </button>
+            <div className="pt-4 border-t border-neutral-800 flex justify-center">
               <button
                 onClick={() => {
                   onOpenAccountModal();
                   setMobileMenuOpen(false);
                 }}
-                className="text-xs tracking-wider uppercase text-neutral-400 hover:text-white"
+                className="text-xs tracking-wider uppercase text-neutral-400 hover:text-white flex items-center gap-2"
               >
-                Account
+                <User size={14} />
+                <span>Client Account</span>
               </button>
             </div>
           </div>

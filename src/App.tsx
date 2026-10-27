@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Navbar, CurrencyModal, SearchDrawer } from '@/features/navigation';
+import { Navbar, SearchDrawer } from '@/features/navigation';
 import { HomePage, Footer } from '@/features/home';
 import { CategoryPage } from '@/features/products/pages/CategoryPage';
 import { ProductDetailPage } from '@/features/products/pages/ProductDetailPage';
@@ -8,14 +8,14 @@ import { CraftPage } from '@/features/craft/CraftPage';
 import { JournalPage } from '@/features/journal/JournalPage';
 import { AboutPage } from '@/features/about/AboutPage';
 import { ProductQuickView } from '@/features/products';
-import { AccountModal } from '@/features/auth';
+import { AccountModal, LoginPage } from '@/features/auth';
 import { CartDrawer } from '@/features/cart';
 import { Product, CartItem, RegionOption } from '@/types';
 import { REGIONS, CURRENCY_RATES, PRODUCTS } from '@/data/products';
 
 export const App: React.FC = () => {
-  // Regional & Currency State
-  const [currentRegion, setCurrentRegion] = useState<RegionOption>(REGIONS[0]);
+  // Regional & Currency State (Default INR)
+  const [currentRegion] = useState<RegionOption>(REGIONS[0]);
 
   // Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([
@@ -27,13 +27,12 @@ export const App: React.FC = () => {
   ]);
 
   // Auth State
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email?: string; phone?: string } | null>(null);
 
   // QuickView State
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   // Modal Visibility States
-  const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -84,8 +83,6 @@ export const App: React.FC = () => {
       <div className="min-h-screen bg-adwika-black text-neutral-100 flex flex-col font-sans selection:bg-adwika-sand selection:text-black">
         {/* Top Navigation */}
         <Navbar
-          currentRegion={currentRegion}
-          onOpenRegionModal={() => setIsRegionModalOpen(true)}
           onOpenAccountModal={() => setIsAccountModalOpen(true)}
           onOpenSearchModal={() => setIsSearchModalOpen(true)}
           onOpenCart={() => setIsCartOpen(true)}
@@ -185,6 +182,16 @@ export const App: React.FC = () => {
             <Route path="/journal" element={<JournalPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route
+              path="/login"
+              element={
+                <LoginPage
+                  currentUser={currentUser}
+                  onLoginSuccess={(user) => setCurrentUser(user)}
+                  onLogout={() => setCurrentUser(null)}
+                />
+              }
+            />
+            <Route
               path="/product/:id"
               element={
                 <ProductDetailPage
@@ -203,12 +210,6 @@ export const App: React.FC = () => {
         <Footer />
 
         {/* Interactive Modals and Drawers */}
-        <CurrencyModal
-          isOpen={isRegionModalOpen}
-          onClose={() => setIsRegionModalOpen(false)}
-          selectedRegion={currentRegion}
-          onSelectRegion={setCurrentRegion}
-        />
 
         <SearchDrawer
           isOpen={isSearchModalOpen}

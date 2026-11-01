@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Formik, Form, Field, ErrorMessage } from 'formik';
-import { ArrowRight, Lock, Phone, Mail, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
+import { ArrowRight, Lock, Phone, CheckCircle2, RotateCcw, AlertCircle } from 'lucide-react';
 import { validateWithZod } from '@/lib/validation/zod-formik';
 import {
   phoneLoginSchema,
@@ -10,6 +10,8 @@ import {
   OtpVerificationFormData,
   EmailLoginFormData,
 } from '../schemas/auth.schema';
+import { authService } from '../services/auth.service';
+import { SendOtpResponseData } from '../types/auth.types';
 
 interface LoginFormProps {
   onSuccess: (user: { name: string; email?: string; phone?: string }) => void;
@@ -20,7 +22,6 @@ interface LoginFormProps {
 
 type AuthMode = 'phone' | 'otp' | 'email';
 
-
 export const LoginForm: React.FC<LoginFormProps> = ({
   onSuccess,
   onClose,
@@ -28,9 +29,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   onLogout,
 }) => {
   const [authMode, setAuthMode] = useState<AuthMode>('phone');
+  const [rawPhone, setRawPhone] = useState<string>('');
   const [phoneForOtp, setPhoneForOtp] = useState<string>('');
   const [countdown, setCountdown] = useState<number>(30);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [receivedOtp, setReceivedOtp] = useState<string | null>(null);
+  const [otpUserMeta, setOtpUserMeta] = useState<SendOtpResponseData | null>(null);
+  const [isResending, setIsResending] = useState<boolean>(false);
 
   // Countdown timer for OTP
   React.useEffect(() => {
@@ -41,33 +47,72 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     return () => clearTimeout(timer);
   }, [authMode, countdown]);
 
-  // Handle phone submit -> generate mock OTP
+  // Handle phone submit -> calls backend API POST /api/v1/users/send-otp
   const handlePhoneSubmit = async (
     values: PhoneLoginFormData,
-    { setSubmitting }: { setSubmitting: (b: boolean) => void }
+    { setSubmitting, setFieldError }: FormikHelpers<PhoneLoginFormData>
   ) => {
     setSubmitting(true);
-    // Simulate network latency
-    await new Promise((r) => setTimeout(r, 600));
-    setSubmitting(false);
-    setPhoneForOtp(`${values.countryCode} ${values.phone}`);
-    setCountdown(30);
-    setAuthMode('otp');
+    setServerError(null);
+
+    try {
+      const response = await authService.sendOtp(values.phone);
+      setRawPhone(values.phone);
+      setPhoneForOtp(`+91 ${values.phone}`);
+      setReceivedOtp(response.data.otp || null);
+      setOtpUserMeta(response.data);
+      setCountdown(30);
+      setAuthMode('otp');
+    } catch (err: any) {
+      const message = err.message || 'Failed to send OTP. Please try again.';
+      setServerError(message);
+      setFieldError('phone', message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle resending OTP via backend API
+  const handleResendOtp = async () => {
+    if (!rawPhone || isResending) return;
+    setIsResending(true);
+    setServerError(null);
+
+    try {
+      const response = await authService.sendOtp(rawPhone);
+      setReceivedOtp(response.data.otp || null);
+      setOtpUserMeta(response.data);
+      setCountdown(30);
+    } catch (err: any) {
+      setServerError(err.message || 'Failed to resend OTP. Please try again.');
+    } finally {
+      setIsResending(false);
+    }
   };
 
   // Handle OTP verification
   const handleOtpSubmit = async (
     values: OtpVerificationFormData,
-    { setSubmitting }: { setSubmitting: (b: boolean) => void }
+    { setSubmitting, setFieldError }: FormikHelpers<OtpVerificationFormData>
   ) => {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 700));
+    setServerError(null);
+
+    // If an OTP was received from the server (e.g. dev mode), verify it matches
+    if (receivedOtp && values.otp !== receivedOtp) {
+      setFieldError('otp', 'Incorrect OTP. Please enter the valid 6-digit code.');
+      setSubmitting(false);
+      return;
+    }
+
+    await new Promise((r) => setTimeout(r, 400));
     setSubmitting(false);
 
     setSuccessToast('Verification successful. Welcome to Adwika!');
     setTimeout(() => {
+      const patronSuffix = rawPhone ? rawPhone.slice(-4) : phoneForOtp.slice(-4);
       onSuccess({
-        name: `Patron ${phoneForOtp.slice(-4)}`,
+        name: `Patron ${patronSuffix}`,
         phone: phoneForOtp,
       });
       if (onClose) onClose();
@@ -77,7 +122,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   // Handle Email login submit
   const handleEmailSubmit = async (
     values: EmailLoginFormData,
-    { setSubmitting }: { setSubmitting: (b: boolean) => void }
+    { setSubmitting }: FormikHelpers<EmailLoginFormData>
   ) => {
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 700));
@@ -232,8 +277,15 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 validate={validateWithZod(phoneLoginSchema)}
                 onSubmit={handlePhoneSubmit}
               >
-                {({ isSubmitting, errors, touched }) => (
+                {({ isSubmitting }) => (
                   <Form className="space-y-6">
+                    {serverError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 p-3 text-xs flex items-center gap-2">
+                        <AlertCircle size={14} className="shrink-0 text-red-500" />
+                        <span>{serverError}</span>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-xs font-medium text-[#4a4541] mb-2 uppercase tracking-wider">
                         Phone Number
@@ -282,7 +334,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     {/* CONTINUE WITH EMAIL Button matching prototype */}
                     <button
                       type="button"
-                      onClick={() => setAuthMode('email')}
+                      onClick={() => {
+                        setServerError(null);
+                        setAuthMode('email');
+                      }}
                       className="w-full bg-[#f8f6f2] hover:bg-[#efebe4] text-[#4a4541] hover:text-[#231f1d] border border-[#dfdad2] py-3 px-6 text-xs tracking-widest uppercase font-sans font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm"
                     >
                       <Lock size={13} className="text-[#8d674f]" />
@@ -300,8 +355,36 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 validate={validateWithZod(otpVerificationSchema)}
                 onSubmit={handleOtpSubmit}
               >
-                {({ isSubmitting }) => (
+                {({ isSubmitting, setFieldValue }) => (
                   <Form className="space-y-6 animate-fadeIn">
+                    {serverError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 p-3 text-xs flex items-center gap-2">
+                        <AlertCircle size={14} className="shrink-0 text-red-500" />
+                        <span>{serverError}</span>
+                      </div>
+                    )}
+
+                    {/* Dev / Test OTP Helper Display */}
+                    {receivedOtp && (
+                      <div className="bg-[#f5ede2] border border-[#d9c4ad] p-3 text-xs flex items-center justify-between text-[#54382c]">
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider block text-[#8d674f] font-mono">
+                            Test / Demo OTP Code
+                          </span>
+                          <span className="font-mono text-base font-semibold tracking-widest text-[#231f1d]">
+                            {receivedOtp}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFieldValue('otp', receivedOtp)}
+                          className="text-xs uppercase tracking-wider underline font-medium hover:text-[#231f1d] cursor-pointer"
+                        >
+                          Auto-fill
+                        </button>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-xs font-medium text-[#4a4541] mb-2 uppercase tracking-wider">
                         6-Digit OTP
@@ -335,7 +418,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     <div className="flex items-center justify-between text-xs text-[#6e6863] pt-2">
                       <button
                         type="button"
-                        onClick={() => setAuthMode('phone')}
+                        onClick={() => {
+                          setServerError(null);
+                          setAuthMode('phone');
+                        }}
                         className="hover:text-neutral-900 transition-colors underline underline-offset-4"
                       >
                         Change Phone
@@ -348,11 +434,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setCountdown(30)}
-                          className="text-[#54382c] font-medium hover:underline flex items-center gap-1"
+                          onClick={handleResendOtp}
+                          disabled={isResending}
+                          className="text-[#54382c] font-medium hover:underline flex items-center gap-1 disabled:opacity-50"
                         >
-                          <RotateCcw size={12} />
-                          <span>Resend OTP</span>
+                          <RotateCcw size={12} className={isResending ? 'animate-spin' : ''} />
+                          <span>{isResending ? 'Sending...' : 'Resend OTP'}</span>
                         </button>
                       )}
                     </div>

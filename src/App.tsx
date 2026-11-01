@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navbar, SearchDrawer } from '@/features/navigation';
 import { HomePage, Footer } from '@/features/home';
 import { CategoryPage } from '@/features/products/pages/CategoryPage';
@@ -10,10 +10,14 @@ import { AboutPage } from '@/features/about/AboutPage';
 import { ProductQuickView } from '@/features/products';
 import { AccountModal, LoginPage } from '@/features/auth';
 import { CartDrawer } from '@/features/cart';
+import { AdminRoutes } from '@/features/admin';
 import { Product, CartItem, RegionOption } from '@/types';
 import { REGIONS, CURRENCY_RATES, PRODUCTS } from '@/data/products';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+
   // Regional & Currency State (Default INR)
   const [currentRegion] = useState<RegionOption>(REGIONS[0]);
 
@@ -79,173 +83,185 @@ export const App: React.FC = () => {
   };
 
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-adwika-black text-neutral-100 flex flex-col font-sans selection:bg-adwika-sand selection:text-black">
-        {/* Top Navigation */}
+    <div className="min-h-screen bg-adwika-black text-neutral-100 flex flex-col font-sans selection:bg-adwika-sand selection:text-black">
+      {/* Top Navigation - shown on storefront */}
+      {!isAdmin && (
         <Navbar
           onOpenAccountModal={() => setIsAccountModalOpen(true)}
           onOpenSearchModal={() => setIsSearchModalOpen(true)}
           onOpenCart={() => setIsCartOpen(true)}
           cartCount={cartCount}
         />
+      )}
 
-        {/* Routed Pages */}
-        <main className="flex-1">
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <HomePage
-                  currency={activeCurrency}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                />
-              }
-            />
-            {/* Main Category Routes */}
-            <Route
-              path="/kurtis"
-              element={
-                <CategoryPage
-                  category="KURTIS"
-                  title="Kurtis & Tunics"
-                  subtitle="Architectural silhouettes, inverted pleating, and flowing handloom Chanderi and cotton-silks designed for daily poise."
-                  heroImage="/images/aangan-kurta.jpg"
-                  currency={activeCurrency}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                />
-              }
-            />
-            <Route
-              path="/suits"
-              element={
-                <CategoryPage
-                  category="SUITS"
-                  title="Suits & Anarkalis"
-                  subtitle="Celebratory heirlooms featuring tone-on-tone Kashmiri needlework, hammered silks, gossamer dupattas, and zari velvet shararas."
-                  heroImage="/images/occasionwear-collection.jpg"
-                  currency={activeCurrency}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                />
-              }
-            />
-            <Route
-              path="/coords"
-              element={
-                <CategoryPage
-                  category="CO-ORDS"
-                  title="Co-ord Sets"
-                  subtitle="Contemporary two-piece coordinated sets crafted in pure mulberry silk, chanderi, and textured drapes."
-                  heroImage="/images/gulab-set.jpg"
-                  currency={activeCurrency}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                />
-              }
-            />
-            <Route
-              path="/shirts"
-              element={
-                <CategoryPage
-                  category="SHIRTS"
-                  title="Handloom Shirts"
-                  subtitle="Relaxed dropped-shoulder tailoring cut from Maheshwari silk and wild Bhagalpuri tussar."
-                  heroImage="/images/craft-detail-collection.jpg"
-                  currency={activeCurrency}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                />
-              }
-            />
-            <Route
-              path="/sarees"
-              element={
-                <CategoryPage
-                  category="SAREES"
-                  title="Sarees — Arriving Winter 2026"
-                  subtitle="Hand-woven pit loom silks, featherweight Chanderis, and hand-painted Srikalahasti Kalamkaris. Preview our inaugural archives."
-                  heroImage="/images/hero-user.jpg"
-                  currency={activeCurrency}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                />
-              }
-            />
-            {/* Backward-compatible legacy aliases */}
-            <Route path="/women" element={<Navigate to="/kurtis" replace />} />
-            <Route path="/occasionwear" element={<Navigate to="/suits" replace />} />
-            <Route
-              path="/craft"
-              element={
-                <CraftPage
-                  currency={activeCurrency}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                />
-              }
-            />
-            <Route path="/journal" element={<JournalPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route
-              path="/login"
-              element={
-                <LoginPage
-                  currentUser={currentUser}
-                  onLoginSuccess={(user) => setCurrentUser(user)}
-                  onLogout={() => setCurrentUser(null)}
-                />
-              }
-            />
-            <Route
-              path="/product/:id"
-              element={
-                <ProductDetailPage
-                  currency={activeCurrency}
-                  onAddToCart={handleAddToCart}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                />
-              }
-            />
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
+      {/* Main Routed Content */}
+      <main className="flex-1">
+        <Routes>
+          {/* Admin Routes */}
+          <Route path="/admin/*" element={<AdminRoutes />} />
 
-        {/* Luxury Footer */}
-        <Footer />
+          {/* Storefront Routes */}
+          <Route
+            path="/"
+            element={
+              <HomePage
+                currency={activeCurrency}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          {/* Main Category Routes */}
+          <Route
+            path="/kurtis"
+            element={
+              <CategoryPage
+                category="KURTIS"
+                title="Kurtis & Tunics"
+                subtitle="Exquisite long tunics, hand-block printed chanderis, and raw silk silhouettes."
+                heroImage="/images/women-editorial.jpg"
+                currency={activeCurrency}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          <Route
+            path="/suits"
+            element={
+              <CategoryPage
+                category="SUITS"
+                title="Suits & Anarkalis"
+                subtitle="Celebratory heirlooms featuring tone-on-tone Kashmiri needlework, hammered silks, gossamer dupattas, and zari velvet shararas."
+                heroImage="/images/occasionwear-collection.jpg"
+                currency={activeCurrency}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          <Route
+            path="/coords"
+            element={
+              <CategoryPage
+                category="CO-ORDS"
+                title="Co-ord Sets"
+                subtitle="Contemporary two-piece coordinated sets crafted in pure mulberry silk, chanderi, and textured drapes."
+                heroImage="/images/gulab-set.jpg"
+                currency={activeCurrency}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          <Route
+            path="/shirts"
+            element={
+              <CategoryPage
+                category="SHIRTS"
+                title="Shirts"
+                subtitle="Hand-loomed cotton and silk statement shirts tailored for relaxed luxury and effortless style."
+                heroImage="/images/aangan-kurta.jpg"
+                currency={activeCurrency}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          <Route
+            path="/sarees"
+            element={
+              <CategoryPage
+                category="SAREES"
+                title="Sarees (Coming Soon)"
+                subtitle="Handwoven heirlooms in tissue silk, Banarasi zari, and pure organza drapes."
+                heroImage="/images/editorial-detail.jpg"
+                currency={activeCurrency}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          <Route
+            path="/craft"
+            element={
+              <CraftPage
+                currency={activeCurrency}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          <Route path="/journal" element={<JournalPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route
+            path="/login"
+            element={
+              <LoginPage
+                currentUser={currentUser}
+                onLoginSuccess={(user) => setCurrentUser(user)}
+                onLogout={() => setCurrentUser(null)}
+              />
+            }
+          />
+          <Route
+            path="/product/:id"
+            element={
+              <ProductDetailPage
+                currency={activeCurrency}
+                onAddToCart={handleAddToCart}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
 
-        {/* Interactive Modals and Drawers */}
+      {/* Luxury Footer - shown on storefront */}
+      {!isAdmin && <Footer />}
 
-        <SearchDrawer
-          isOpen={isSearchModalOpen}
-          onClose={() => setIsSearchModalOpen(false)}
-          currency={activeCurrency}
-          onSelectProduct={(p) => setQuickViewProduct(p)}
-        />
+      {/* Storefront Interactive Modals and Drawers */}
+      {!isAdmin && (
+        <>
+          <SearchDrawer
+            isOpen={isSearchModalOpen}
+            onClose={() => setIsSearchModalOpen(false)}
+            currency={activeCurrency}
+            onSelectProduct={(p) => setQuickViewProduct(p)}
+          />
 
-        <AccountModal
-          isOpen={isAccountModalOpen}
-          onClose={() => setIsAccountModalOpen(false)}
-          currentUser={currentUser}
-          onLoginSuccess={(user) => setCurrentUser(user)}
-          onLogout={() => setCurrentUser(null)}
-        />
+          <AccountModal
+            isOpen={isAccountModalOpen}
+            onClose={() => setIsAccountModalOpen(false)}
+            currentUser={currentUser}
+            onLoginSuccess={(user) => setCurrentUser(user)}
+            onLogout={() => setCurrentUser(null)}
+          />
 
-        <CartDrawer
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          items={cartItems}
-          currency={activeCurrency}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onExplore={() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        />
+          <CartDrawer
+            isOpen={isCartOpen}
+            onClose={() => setIsCartOpen(false)}
+            items={cartItems}
+            currency={activeCurrency}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveItem}
+            onExplore={() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
 
-        <ProductQuickView
-          product={quickViewProduct}
-          isOpen={Boolean(quickViewProduct)}
-          onClose={() => setQuickViewProduct(null)}
-          currency={activeCurrency}
-          onAddToCart={handleAddToCart}
-        />
-      </div>
+          <ProductQuickView
+            product={quickViewProduct}
+            isOpen={Boolean(quickViewProduct)}
+            onClose={() => setQuickViewProduct(null)}
+            currency={activeCurrency}
+            onAddToCart={handleAddToCart}
+          />
+        </>
+      )}
+    </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, User, Search } from 'lucide-react';
+import { Menu, X, ShoppingBag, User, Search, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 interface NavbarProps {
   onOpenAccountModal: () => void;
@@ -127,13 +127,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             navigate('/');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          title="Adwika | अद्विका — Return to Home"
+          title="Adwika — Return to Home"
         >
-          <img
-            src="/images/adwika-logo.png"
-            alt="Adwika | अद्विका"
-            className="h-8 sm:h-9 md:h-10 w-auto object-contain mix-blend-screen filter contrast-125 brightness-110 transition-all duration-300 group-hover:brightness-125 group-hover:scale-105"
-          />
+          <div
+            className="relative h-8 sm:h-9 md:h-10 overflow-hidden flex items-center shrink-0"
+            style={{ aspectRatio: '2.25 / 1' }}
+          >
+            <img
+              src="/images/adwika-logo.png"
+              alt="Adwika"
+              className="h-full w-auto max-w-none object-left object-contain mix-blend-screen filter contrast-125 brightness-110 transition-all duration-300 group-hover:brightness-125 group-hover:scale-105"
+              style={{ clipPath: 'inset(0 44% 0 0)' }}
+            />
+          </div>
         </div>
 
         {/* Right Navigation / Controls - matching prototype */}
@@ -160,6 +166,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden lg:inline">ACCOUNT</span>
           </button>
 
+          {/* Admin Portal */}
+          <button
+            onClick={() => navigate('/admin/fit-sizes')}
+            className="text-neutral-400 hover:text-[#c9a87c] transition-colors p-1 flex items-center gap-1 text-[11px] tracking-luxury uppercase"
+            aria-label="Admin Console"
+            title="Admin Console · Fit Sizes CRUD"
+          >
+            <Shield size={14} className="text-[#c9a87c]" />
+            <span className="hidden xl:inline">ADMIN</span>
+          </button>
+
           {/* Shopping Bag */}
           <button
             onClick={onOpenCart}
@@ -183,13 +200,19 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden bg-black/95 border-b border-neutral-800 px-6 py-8 animate-fadeIn text-center">
-          {/* Mobile menu bilingual logo */}
+          {/* Mobile menu logo */}
           <div className="flex justify-center mb-6 pb-4 border-b border-neutral-900">
-            <img
-              src="/images/adwika-logo.png"
-              alt="Adwika | अद्विका"
-              className="h-9 w-auto object-contain mix-blend-screen"
-            />
+            <div
+              className="relative h-9 overflow-hidden flex items-center shrink-0"
+              style={{ aspectRatio: '2.25 / 1' }}
+            >
+              <img
+                src="/images/adwika-logo.png"
+                alt="Adwika"
+                className="h-full w-auto max-w-none object-left object-contain mix-blend-screen"
+                style={{ clipPath: 'inset(0 44% 0 0)' }}
+              />
+            </div>
           </div>
           <div className="flex flex-col gap-6">
             {navLinks.map((link) => (
@@ -201,7 +224,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {link.label}
               </button>
             ))}
-            <div className="pt-4 border-t border-neutral-800 flex justify-center">
+            <div className="pt-4 border-t border-neutral-800 flex items-center justify-center gap-6">
               <button
                 onClick={() => {
                   onOpenAccountModal();
@@ -210,7 +233,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="text-xs tracking-wider uppercase text-neutral-400 hover:text-white flex items-center gap-2"
               >
                 <User size={14} />
-                <span>Client Account</span>
+                <span>Account</span>
+              </button>
+              <button
+                onClick={() => {
+                  navigate('/admin/fit-sizes');
+                  setMobileMenuOpen(false);
+                }}
+                className="text-xs tracking-wider uppercase text-[#c9a87c] hover:text-white flex items-center gap-1.5 font-mono"
+              >
+                <Shield size={13} />
+                <span>Admin Console</span>
               </button>
             </div>
           </div>

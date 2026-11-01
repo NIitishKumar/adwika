@@ -7,12 +7,13 @@ interface BrandLogoProps {
   showTagline?: boolean;
   className?: string;
   onClick?: () => void;
+  englishOnly?: boolean;
 }
 
 /**
  * Authentic Adwika Brand Logo component.
- * Uses the authentic brand insignia image with bilingual "Adwika | अद्विका"
- * and red bindi dot, optimized with mix-blend-screen for dark luxury aesthetics.
+ * Displays "Adwika" in pure luxury typography, optimized with mix-blend modes
+ * for both light and dark aesthetics.
  */
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 'sm',
@@ -20,6 +21,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   showTagline = false,
   className = '',
   onClick,
+  englishOnly = true,
 }) => {
   const navigate = useNavigate();
 
@@ -49,15 +51,23 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       tabIndex={0}
       aria-label="Adwika Home"
     >
-      <div className="relative flex items-center justify-center">
+      <div
+        className={`relative flex items-center justify-center overflow-hidden ${
+          englishOnly ? 'shrink-0' : ''
+        }`}
+        style={englishOnly ? { aspectRatio: '2.25 / 1' } : undefined}
+      >
         <img
           src="/images/adwika-logo.png"
-          alt="Adwika | अद्विका"
-          className={`${heightClasses} w-auto object-contain filter contrast-125 brightness-105 transition-all duration-300 group-hover:brightness-125 group-hover:scale-[1.02] ${
+          alt="Adwika"
+          className={`${heightClasses} transition-all duration-300 group-hover:scale-[1.02] ${
+            englishOnly ? 'h-full max-w-none w-auto object-left object-contain' : 'w-auto object-contain'
+          } ${
             variant === 'light'
-              ? 'invert contrast-200'
-              : 'mix-blend-screen drop-shadow-[0_2px_12px_rgba(203,175,148,0.2)]'
+              ? 'filter invert grayscale contrast-175 mix-blend-multiply'
+              : 'mix-blend-screen drop-shadow-[0_2px_12px_rgba(203,175,148,0.2)] brightness-110'
           }`}
+          style={englishOnly ? { clipPath: 'inset(0 44% 0 0)' } : undefined}
         />
       </div>
 

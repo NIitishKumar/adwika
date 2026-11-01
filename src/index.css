@@ -19,13 +19,16 @@
     width: 6px;
     height: 6px;
   }
+
   ::-webkit-scrollbar-track {
     background: #080808;
   }
+
   ::-webkit-scrollbar-thumb {
     background: #2a2825;
     border-radius: 3px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: #47433c;
   }
@@ -35,10 +38,466 @@
   .tracking-luxury {
     letter-spacing: 0.2em;
   }
+
   .tracking-wide-luxury {
     letter-spacing: 0.3em;
   }
+
   .editorial-shadow {
     box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08);
   }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-16px) scale(0.97);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-slideDown {
+    animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out forwards;
+  }
+
+  .animate-scaleIn {
+    animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+/* ==========================================================================
+   Adwika Admin Portal — Haute Couture White & Ivory Theme
+   ========================================================================== */
+
+.admin-portal-white {
+  background-color: #f8f7f5 !important;
+  color: #1c1917 !important;
+}
+
+/* Custom Admin Scrollbars */
+.admin-portal-white ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.admin-portal-white ::-webkit-scrollbar-track {
+  background: #f8f7f5;
+}
+
+.admin-portal-white ::-webkit-scrollbar-thumb {
+  background: #d8d3cb;
+  border-radius: 9999px;
+}
+
+.admin-portal-white ::-webkit-scrollbar-thumb:hover {
+  background: #b5ada4;
+}
+
+/* Structural Layout: Sidebar, Header, and Main Canvas */
+.admin-portal-white aside {
+  background-color: #ffffff !important;
+  border-right-color: #e8e4de !important;
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.02) !important;
+}
+
+.admin-portal-white aside img[alt="Adwika"] {
+  filter: invert(1) grayscale(1) contrast(175%) !important;
+  mix-blend-mode: multiply !important;
+  clip-path: inset(0 43% 0 0) !important;
+}
+
+.admin-portal-white header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: #e8e4de !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Background surfaces & Cards */
+.admin-portal-white .bg-\[\#0c0b0a\],
+.admin-portal-white .bg-\[\#0d0d0d\],
+.admin-portal-white .bg-\[\#0f0e0d\],
+.admin-portal-white .bg-\[\#121110\],
+.admin-portal-white .bg-\[\#141312\],
+.admin-portal-white .bg-\[\#141414\],
+.admin-portal-white .bg-\[\#161413\],
+.admin-portal-white .bg-\[\#171513\],
+.admin-portal-white .bg-\[\#181615\],
+.admin-portal-white .bg-\[\#191715\],
+.admin-portal-white .bg-\[\#1a1715\],
+.admin-portal-white .bg-\[\#1a1816\],
+.admin-portal-white .bg-\[\#1c1917\],
+.admin-portal-white .bg-\[\#1e1b18\] {
+  background-color: #ffffff !important;
+}
+
+/* Secondary Surface Tint / Sub-panels / Modal Ribbon Headers / Previews */
+.admin-portal-white .bg-\[\#100f0e\],
+.admin-portal-white .bg-\[\#191817\],
+.admin-portal-white .bg-\[\#1f1c19\],
+.admin-portal-white .bg-\[\#201d1a\],
+.admin-portal-white .bg-\[\#292521\] {
+  background-color: #faf8f5 !important;
+}
+
+/* Code & Order Pills */
+.admin-portal-white .bg-\[\#201c18\],
+.admin-portal-white .bg-\[\#211d19\],
+.admin-portal-white .bg-\[\#241e19\],
+.admin-portal-white .bg-\[\#25201b\],
+.admin-portal-white .bg-\[\#2a241e\] {
+  background-color: #f5efe8 !important;
+  border-color: #d6c4b2 !important;
+  color: #54382c !important;
+}
+
+/* Icon Containers / Hierarchy Badges */
+.admin-portal-white .bg-\[\#271f19\],
+.admin-portal-white .bg-\[\#29221b\],
+.admin-portal-white .bg-\[\#2a221b\],
+.admin-portal-white .bg-\[\#241c16\] {
+  background-color: #f7f2ea !important;
+  border-color: #dfd2c4 !important;
+  color: #8b633b !important;
+}
+
+/* Active navigation item & highlight filter pills */
+.admin-portal-white .bg-\[\#261f18\],
+.admin-portal-white .bg-\[\#3b2b20\] {
+  background-color: #f5efe8 !important;
+  color: #54382c !important;
+  border-color: #d6c4b2 !important;
+  font-weight: 600 !important;
+}
+
+.admin-portal-white .text-\[\#e0cfba\],
+.admin-portal-white .text-\[\#d6c7b2\],
+.admin-portal-white .text-\[\#d8c0a2\] {
+  color: #54382c !important;
+  font-weight: 500 !important;
+}
+
+/* Global Borders across all admin components */
+.admin-portal-white .border-\[\#22201d\],
+.admin-portal-white .border-\[\#24201c\],
+.admin-portal-white .border-\[\#26221f\],
+.admin-portal-white .border-\[\#262320\],
+.admin-portal-white .border-\[\#292420\],
+.admin-portal-white .border-\[\#2b2723\],
+.admin-portal-white .border-\[\#2e2823\],
+.admin-portal-white .border-\[\#2e2a27\],
+.admin-portal-white .border-\[\#2f2a25\],
+.admin-portal-white .border-\[\#302b26\],
+.admin-portal-white .border-\[\#322c26\],
+.admin-portal-white .border-\[\#332c25\],
+.admin-portal-white .border-\[\#332e29\],
+.admin-portal-white .border-\[\#332f2c\],
+.admin-portal-white .border-\[\#332b26\],
+.admin-portal-white .border-\[\#352f2a\],
+.admin-portal-white .border-\[\#383028\],
+.admin-portal-white .border-\[\#38332d\],
+.admin-portal-white .border-\[\#38332e\],
+.admin-portal-white .border-\[\#3a3229\],
+.admin-portal-white .border-\[\#3d332a\],
+.admin-portal-white .border-\[\#3d342a\],
+.admin-portal-white .border-\[\#443729\],
+.admin-portal-white .border-\[\#44372c\],
+.admin-portal-white .border-\[\#483727\],
+.admin-portal-white .border-\[\#4a3a2c\],
+.admin-portal-white .border-\[\#4c3b2b\],
+.admin-portal-white .border-\[\#4d3a2b\],
+.admin-portal-white .border-\[\#6b4e36\] {
+  border-color: #e8e4de !important;
+}
+
+.admin-portal-white .divide-\[\#22201d\]> :not([hidden])~ :not([hidden]),
+.admin-portal-white .divide-\[\#24201c\]> :not([hidden])~ :not([hidden]),
+.admin-portal-white .divide-\[\#26221f\]> :not([hidden])~ :not([hidden]),
+.admin-portal-white .divide-\[\#262320\]> :not([hidden])~ :not([hidden]) {
+  border-color: #eeebe6 !important;
+}
+
+/* Text Hierarchy */
+.admin-portal-white h1,
+.admin-portal-white h2,
+.admin-portal-white h3,
+.admin-portal-white h4 {
+  color: #1c1917 !important;
+}
+
+.admin-portal-white .text-neutral-100,
+.admin-portal-white .text-neutral-200 {
+  color: #1c1917 !important;
+}
+
+.admin-portal-white .text-neutral-300 {
+  color: #292524 !important;
+}
+
+.admin-portal-white .text-neutral-400 {
+  color: #57534e !important;
+}
+
+.admin-portal-white .text-neutral-500 {
+  color: #78716c !important;
+}
+
+.admin-portal-white .text-neutral-600 {
+  color: #52525b !important;
+}
+
+/* Luxury Bronze-Gold Accent on White Canvas */
+.admin-portal-white .text-\[\#c9a87c\] {
+  color: #8b633b !important;
+}
+
+/* Secondary & Refresh Buttons */
+.admin-portal-white button.bg-\[\#191715\],
+.admin-portal-white button.bg-\[\#191715\]:hover,
+.admin-portal-white button.bg-\[\#24201c\] {
+  background-color: #ffffff !important;
+  border-color: #e8e4de !important;
+  color: #57534e !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+.admin-portal-white button.bg-\[\#191715\]:hover,
+.admin-portal-white button.bg-\[\#24201c\]:hover {
+  background-color: #f5efe8 !important;
+  color: #1c1917 !important;
+  border-color: #d6c4b2 !important;
+}
+
+/* Inactive Filter Tags */
+.admin-portal-white button.bg-\[\#1b1917\] {
+  background-color: #ffffff !important;
+  border-color: #e8e4de !important;
+  color: #57534e !important;
+}
+
+.admin-portal-white button.bg-\[\#1b1917\]:hover {
+  background-color: #faf8f5 !important;
+  color: #1c1917 !important;
+}
+
+/* Form Inputs, Dropdowns, and Textareas */
+.admin-portal-white input,
+.admin-portal-white select,
+.admin-portal-white textarea,
+.admin-portal-white .bg-\[\#1e1c1a\],
+.admin-portal-white .bg-\[\#1b1917\] {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+  border-color: #d8d3cb !important;
+}
+
+.admin-portal-white input::placeholder,
+.admin-portal-white textarea::placeholder {
+  color: #a8a29e !important;
+}
+
+.admin-portal-white input:focus,
+.admin-portal-white select:focus,
+.admin-portal-white textarea:focus {
+  border-color: #8b633b !important;
+  box-shadow: 0 0 0 1px #8b633b !important;
+}
+
+.admin-portal-white option {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+}
+
+/* Tables */
+.admin-portal-white table {
+  background-color: #ffffff !important;
+}
+
+.admin-portal-white thead tr {
+  background-color: #f9f8f5 !important;
+  border-bottom: 1px solid #e8e4de !important;
+}
+
+.admin-portal-white thead th {
+  color: #78716c !important;
+}
+
+.admin-portal-white tbody tr {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #f0ece6 !important;
+}
+
+.admin-portal-white tbody tr:hover {
+  background-color: #faf8f5 !important;
+}
+
+.admin-portal-white tbody td {
+  color: #292524 !important;
+}
+
+/* Shadows */
+.admin-portal-white .shadow-xl,
+.admin-portal-white .shadow-2xl,
+.admin-portal-white .shadow-lg {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 24px -6px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Badges */
+.admin-portal-white .bg-emerald-950\/40,
+.admin-portal-white .bg-emerald-950\/50,
+.admin-portal-white .bg-emerald-950\/60,
+.admin-portal-white .bg-emerald-950\/70,
+.admin-portal-white .bg-emerald-950\/80 {
+  background-color: #ecfdf5 !important;
+  color: #065f46 !important;
+  border-color: #a7f3d0 !important;
+}
+
+.admin-portal-white .bg-amber-950\/40,
+.admin-portal-white .bg-amber-950\/60,
+.admin-portal-white .bg-amber-950\/70,
+.admin-portal-white .bg-amber-950\/80 {
+  background-color: #fffbeb !important;
+  color: #92400e !important;
+  border-color: #fde68a !important;
+}
+
+.admin-portal-white .bg-rose-950\/60,
+.admin-portal-white .bg-rose-950\/70,
+.admin-portal-white .bg-rose-950\/80,
+.admin-portal-white .bg-red-950\/60,
+.admin-portal-white .bg-red-950\/40 {
+  background-color: #fff1f2 !important;
+  color: #9f1239 !important;
+  border-color: #fecdd3 !important;
+}
+
+.admin-portal-white .bg-neutral-800\/60,
+.admin-portal-white .bg-neutral-800\/80 {
+  background-color: #f5f5f4 !important;
+  color: #57534e !important;
+  border-color: #e7e5e4 !important;
+}
+
+/* Preserve Crisp White Text on Solid Brand Buttons & Destructive Actions */
+.admin-portal-white button.bg-\[\#54382c\],
+.admin-portal-white button.bg-\[\#54382c\] *,
+.admin-portal-white a.bg-\[\#54382c\],
+.admin-portal-white a.bg-\[\#54382c\] *,
+.admin-portal-white button[type="submit"],
+.admin-portal-white button[type="submit"] *,
+.admin-portal-white button.bg-red-900\/80,
+.admin-portal-white button.bg-red-900\/80 *,
+.admin-portal-white button.bg-red-800,
+.admin-portal-white button.bg-red-800 * {
+  color: #ffffff !important;
+}
+
+.admin-portal-white button.bg-\[\#54382c\]:hover {
+  background-color: #3e271d !important;
+}
+
+.admin-portal-white button.bg-red-900\/80:hover,
+.admin-portal-white button.bg-red-800:hover {
+  background-color: #b91c1c !important;
+}
+
+/* Modals & Dialogs */
+.admin-portal-white .fixed.inset-0.bg-black\/80,
+.admin-portal-white .fixed.inset-0.bg-black\/75 {
+  background-color: rgba(15, 14, 13, 0.45) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+.admin-portal-white .relative.z-10.bg-\[\#141414\],
+.admin-portal-white .relative.z-10.bg-\[\#161413\] {
+  background-color: #ffffff !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+  border-color: #e8e4de !important;
+}
+
+/* Modal cancel buttons */
+.admin-portal-white button.text-neutral-400.hover\:text-neutral-200 {
+  background-color: #ffffff !important;
+  border: 1px solid #e8e4de !important;
+  color: #57534e !important;
+}
+
+.admin-portal-white button.text-neutral-400.hover\:text-neutral-200:hover {
+  background-color: #f5efe8 !important;
+  color: #1c1917 !important;
+}
+
+/* High Fidelity Toast Notification System */
+.admin-portal-white .bg-\[\#0d2217\] {
+  background-color: #ffffff !important;
+  border-color: #a7f3d0 !important;
+  color: #065f46 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08) !important;
+}
+
+.admin-portal-white .bg-\[\#290d0d\] {
+  background-color: #ffffff !important;
+  border-color: #fecdd3 !important;
+  color: #9f1239 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08) !important;
+}
+
+.admin-portal-white .bg-\[\#1e1914\] {
+  background-color: #ffffff !important;
+  border-color: #dfd2c4 !important;
+  color: #54382c !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08) !important;
+}
+
+.admin-portal-white .text-emerald-100 {
+  color: #065f46 !important;
+}
+
+.admin-portal-white .text-rose-100 {
+  color: #9f1239 !important;
+}
+
+.admin-portal-white .text-\[\#ebdcc9\] {
+  color: #54382c !important;
+}
+
+/* Dashboard Banner */
+.admin-portal-white .bg-gradient-to-r.from-\[\#171513\] {
+  background: linear-gradient(135deg, #ffffff 0%, #faf6f0 100%) !important;
+  border-color: #e8e4de !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05) !important;
+}
+
+.admin-portal-white .font-serif.text-9xl.tracking-widest.text-\[\#c9a87c\] {
+  color: #c9a87c !important;
+  opacity: 0.15 !important;
 }

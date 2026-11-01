@@ -3,8 +3,8 @@ import {
   CreateProductVariantDto,
   UpdateProductVariantDto,
 } from '../types/productVariant.types';
+import { API_BASE_URL } from '@/config/api.config';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 const STORAGE_KEY = 'adwika_admin_product_variants_v1';
 
 const INITIAL_FALLBACK_VARIANTS: ProductVariant[] = [

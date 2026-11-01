@@ -5,8 +5,8 @@ import {
   ProductGender,
   ProductStatus,
 } from '../types/product.types';
+import { API_BASE_URL } from '@/config/api.config';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 const STORAGE_KEY = 'adwika_admin_products_v1';
 
 const INITIAL_FALLBACK_PRODUCTS: Product[] = [

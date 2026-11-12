@@ -1,20 +1,18 @@
-import React, { useEffect } from 'react';
-import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CheckCircle2, AlertTriangle, Info, WifiOff, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toastManager, ToastItem as GlobalToastItem } from '@/config/toast.config';
 
-export interface ToastItem {
-  id: string;
-  type: 'success' | 'error' | 'info';
-  title?: string;
-  message: string;
-  duration?: number;
-}
+export type ToastItem = GlobalToastItem;
 
 interface AdminToastProps {
   toasts: ToastItem[];
   onDismiss: (id: string) => void;
 }
 
+/**
+ * Page-level toast container (used by individual hooks)
+ */
 export const AdminToastContainer: React.FC<AdminToastProps> = ({ toasts, onDismiss }) => {
   return (
     <div
@@ -28,6 +26,36 @@ export const AdminToastContainer: React.FC<AdminToastProps> = ({ toasts, onDismi
   );
 };
 
+/**
+ * Global toast container (subscribes to toastManager for app-wide toasts like 401 & offline)
+ */
+export const GlobalToastContainer: React.FC = () => {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  useEffect(() => {
+    return toastManager.subscribe((items) => {
+      setToasts(items);
+    });
+  }, []);
+
+  if (toasts.length === 0) return null;
+
+  return (
+    <div
+      aria-live="assertive"
+      className="fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none"
+    >
+      {toasts.map((toast) => (
+        <AdminToastItem
+          key={toast.id}
+          toast={toast}
+          onDismiss={(id) => toastManager.dismiss(id)}
+        />
+      ))}
+    </div>
+  );
+};
+
 const AdminToastItem: React.FC<{
   toast: ToastItem;
   onDismiss: (id: string) => void;
@@ -35,14 +63,23 @@ const AdminToastItem: React.FC<{
   useEffect(() => {
     const timer = setTimeout(() => {
       onDismiss(toast.id);
-    }, toast.duration || 4000);
+    }, toast.duration || 4500);
 
     return () => clearTimeout(timer);
   }, [toast, onDismiss]);
 
+  const isNetworkToast =
+    toast.title?.toLowerCase().includes('internet') ||
+    toast.title?.toLowerCase().includes('offline') ||
+    toast.message?.toLowerCase().includes('internet');
+
   const icons = {
     success: <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />,
-    error: <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />,
+    error: isNetworkToast ? (
+      <WifiOff className="w-5 h-5 text-rose-400 shrink-0" />
+    ) : (
+      <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+    ),
     info: <Info className="w-5 h-5 text-[#c9a87c] shrink-0" />,
   };
 
@@ -54,7 +91,7 @@ const AdminToastItem: React.FC<{
 
   const defaultTitles = {
     success: 'Success',
-    error: 'Action Failed',
+    error: isNetworkToast ? 'Connection Error' : 'Action Failed',
     info: 'Notification',
   };
 

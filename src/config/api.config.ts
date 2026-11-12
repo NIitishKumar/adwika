@@ -1,3 +1,6 @@
+import { showToast } from './toast.config';
+import { getAuthToken, clearAuthSession } from './auth.config';
+
 /**
  * Adwika API Configuration
  * Centralized resolution of the API Base URL.
@@ -25,11 +28,22 @@ export const API_BASE_URL = resolveApiBaseUrl();
  * Authenticated fetch wrapper for admin API calls.
  * Automatically injects `Authorization: Bearer <token>` and `credentials: 'include'`
  * (for the HttpOnly cookie) on every request.
- * Throws on 401 so callers can handle session expiry.
+ *
+ * Automatically handles:
+ * 1. Offline / Network error -> shows Toast "No internet connection..."
+ * 2. 401 Unauthorized -> shows Toast "Authentication token missing. Please log in.",
+ *    clears auth session, and dispatches an 'adwika:unauthorized' event.
  */
 export async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  // Lazy import to avoid circular dependency
-  const { getAuthToken, clearAuthSession } = await import('@/config/auth.config');
+  // Check if browser is currently offline
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    showToast({
+      type: 'error',
+      title: 'No Internet Connection',
+      message: 'Unable to connect to server. Please check your internet connection.',
+    });
+    throw new Error('No internet connection. Please check your network.');
+  }
 
   const token = getAuthToken();
   const headers = new Headers(init?.headers);
@@ -38,15 +52,49 @@ export async function authFetch(input: RequestInfo | URL, init?: RequestInit): P
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(input, {
-    ...init,
-    headers,
-    credentials: 'include',
-  });
+  let response: Response;
+  try {
+    response = await fetch(input, {
+      ...init,
+      headers,
+      credentials: 'include',
+    });
+  } catch (error: any) {
+    // Catch fetch/network errors (connection refused, DNS failure, dropped connection, offline)
+    showToast({
+      type: 'error',
+      title: 'No Internet Connection',
+      message: 'Unable to reach the server. Please check your internet connection.',
+    });
+    throw error;
+  }
 
-  // If server rejects with 401, clear stale session
+  // If server rejects with 401 Unauthorized
   if (response.status === 401) {
     clearAuthSession();
+
+    let errorMessage = 'Authentication token missing. Please log in.';
+    try {
+      const cloned = response.clone();
+      const body = await cloned.json();
+      if (body?.message) {
+        errorMessage = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+      }
+    } catch {
+      // response body was not valid JSON
+    }
+
+    showToast({
+      type: 'error',
+      title: 'Unauthorized',
+      message: errorMessage,
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('adwika:unauthorized', { detail: { message: errorMessage } })
+      );
+    }
   }
 
   return response;

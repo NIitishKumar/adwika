@@ -213,7 +213,7 @@ export const productService = {
       const qs = params.toString();
       const url = qs ? `${API_BASE_URL}/products?${qs}` : `${API_BASE_URL}/products`;
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -241,7 +241,7 @@ export const productService = {
    */
   async getById(id: string): Promise<{ data: Product; fromApi: boolean }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/products/${encodeURIComponent(id)}`, {
+      const response = await authFetch(`${API_BASE_URL}/products/${encodeURIComponent(id)}`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -326,7 +326,7 @@ export const productService = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/products`, {
+      const response = await authFetch(`${API_BASE_URL}/products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -431,7 +431,7 @@ export const productService = {
     }
 
     try {
-      let response = await fetch(`${API_BASE_URL}/products/${id}`, {
+      let response = await authFetch(`${API_BASE_URL}/products/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -441,7 +441,7 @@ export const productService = {
       });
 
       if (response.status === 404 || response.status === 405) {
-        response = await fetch(`${API_BASE_URL}/products/${id}`, {
+        response = await authFetch(`${API_BASE_URL}/products/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -512,7 +512,7 @@ export const productService = {
    */
   async delete(id: string): Promise<{ message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+      const response = await authFetch(`${API_BASE_URL}/products/${id}`, {
         method: 'DELETE',
         headers: {
           Accept: 'application/json',

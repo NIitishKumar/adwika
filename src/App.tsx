@@ -11,7 +11,7 @@ import { ProductQuickView } from '@/features/products';
 import { AccountModal, LoginPage } from '@/features/auth';
 import type { AuthUser } from '@/features/auth';
 import { CartDrawer } from '@/features/cart';
-import { AdminRoutes } from '@/features/admin';
+import { AdminRoutes, GlobalToastContainer } from '@/features/admin';
 import { Product, CartItem, RegionOption } from '@/types';
 import { REGIONS, CURRENCY_RATES, PRODUCTS } from '@/data/products';
 import { getCurrentUser, clearAuthSession, isLoggedIn } from '@/config/auth.config';
@@ -34,6 +34,17 @@ const AppContent: React.FC = () => {
 
   // Auth State — hydrate from sessionStorage on mount
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getCurrentUser());
+
+  // Listen for unauthorized 401 events globally to clear user state
+  React.useEffect(() => {
+    const handleUnauthorized = () => {
+      setCurrentUser(null);
+    };
+    window.addEventListener('adwika:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('adwika:unauthorized', handleUnauthorized);
+    };
+  }, []);
 
   const handleLogout = () => {
     clearAuthSession();
@@ -264,6 +275,8 @@ const AppContent: React.FC = () => {
           />
         </>
       )}
+      {/* Global Toast Container for App-wide notifications (e.g. 401 Unauthorized, No Internet) */}
+      <GlobalToastContainer />
     </div>
   );
 };

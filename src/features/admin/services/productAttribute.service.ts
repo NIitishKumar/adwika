@@ -136,7 +136,7 @@ export const productAttributeService = {
         ? `${API_BASE_URL}/product-attributes?productId=${encodeURIComponent(productId)}`
         : `${API_BASE_URL}/product-attributes`;
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -178,7 +178,7 @@ export const productAttributeService = {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/product-attributes`, {
+      const response = await authFetch(`${API_BASE_URL}/product-attributes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -246,7 +246,7 @@ export const productAttributeService = {
     if (dto.value !== undefined) payload.value = dto.value.trim();
 
     try {
-      let response = await fetch(`${API_BASE_URL}/product-attributes/${id}`, {
+      let response = await authFetch(`${API_BASE_URL}/product-attributes/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -256,7 +256,7 @@ export const productAttributeService = {
       });
 
       if (response.status === 404 || response.status === 405) {
-        response = await fetch(`${API_BASE_URL}/product-attributes/${id}`, {
+        response = await authFetch(`${API_BASE_URL}/product-attributes/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -315,7 +315,7 @@ export const productAttributeService = {
    */
   async delete(id: string): Promise<{ message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/product-attributes/${id}`, {
+      const response = await authFetch(`${API_BASE_URL}/product-attributes/${id}`, {
         method: 'DELETE',
         headers: {
           Accept: 'application/json',

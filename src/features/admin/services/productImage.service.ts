@@ -142,7 +142,7 @@ export const productImageService = {
         ? `${API_BASE_URL}/product-images?productId=${encodeURIComponent(productId)}`
         : `${API_BASE_URL}/product-images`;
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -197,7 +197,7 @@ export const productImageService = {
 
     try {
       // 1. Try querying with ?productId=
-      const response = await fetch(
+      const response = await authFetch(
         `${API_BASE_URL}/product-images?productId=${encodeURIComponent(cleanId)}`,
         {
           method: 'GET',
@@ -246,7 +246,7 @@ export const productImageService = {
       }
 
       // 2. Fallback: try fetching all product images and filtering
-      const allRes = await fetch(`${API_BASE_URL}/product-images`, {
+      const allRes = await authFetch(`${API_BASE_URL}/product-images`, {
         method: 'GET',
         headers: { Accept: 'application/json' },
       });
@@ -306,7 +306,7 @@ export const productImageService = {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/product-images`, {
+      const response = await authFetch(`${API_BASE_URL}/product-images`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -403,7 +403,7 @@ export const productImageService = {
     }
 
     try {
-      let response = await fetch(`${API_BASE_URL}/product-images/${id}`, {
+      let response = await authFetch(`${API_BASE_URL}/product-images/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -413,7 +413,7 @@ export const productImageService = {
       });
 
       if (response.status === 404 || response.status === 405) {
-        response = await fetch(`${API_BASE_URL}/product-images/${id}`, {
+        response = await authFetch(`${API_BASE_URL}/product-images/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -487,7 +487,7 @@ export const productImageService = {
    */
   async delete(id: string): Promise<{ message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/product-images/${id}`, {
+      const response = await authFetch(`${API_BASE_URL}/product-images/${id}`, {
         method: 'DELETE',
         headers: {
           Accept: 'application/json',

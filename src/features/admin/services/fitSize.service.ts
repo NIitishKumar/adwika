@@ -88,7 +88,7 @@ export const fitSizeService = {
    */
   async getAll(): Promise<{ data: FitSize[]; fromApi: boolean }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/fit-sizes`, {
+      const response = await authFetch(`${API_BASE_URL}/fit-sizes`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -126,7 +126,7 @@ export const fitSizeService = {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/fit-sizes`, {
+      const response = await authFetch(`${API_BASE_URL}/fit-sizes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +190,7 @@ export const fitSizeService = {
 
     try {
       // Try PATCH first, fall back to PUT if needed
-      let response = await fetch(`${API_BASE_URL}/fit-sizes/${id}`, {
+      let response = await authFetch(`${API_BASE_URL}/fit-sizes/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -200,7 +200,7 @@ export const fitSizeService = {
       });
 
       if (response.status === 404 || response.status === 405) {
-        response = await fetch(`${API_BASE_URL}/fit-sizes/${id}`, {
+        response = await authFetch(`${API_BASE_URL}/fit-sizes/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -259,7 +259,7 @@ export const fitSizeService = {
    */
   async delete(id: string): Promise<{ message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/fit-sizes/${id}`, {
+      const response = await authFetch(`${API_BASE_URL}/fit-sizes/${id}`, {
         method: 'DELETE',
         headers: {
           'Accept': 'application/json',

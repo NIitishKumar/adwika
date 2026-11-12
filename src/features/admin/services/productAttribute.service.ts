@@ -3,7 +3,7 @@ import {
   CreateProductAttributeDto,
   UpdateProductAttributeDto,
 } from '../types/productAttribute.types';
-import { API_BASE_URL } from '@/config/api.config';
+import { API_BASE_URL, authFetch } from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_attributes_v1';
 

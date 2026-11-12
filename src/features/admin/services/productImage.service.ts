@@ -3,7 +3,7 @@ import {
   CreateProductImageDto,
   UpdateProductImageDto,
 } from '../types/productImage.types';
-import { API_BASE_URL } from '@/config/api.config';
+import { API_BASE_URL, authFetch } from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_images_v1';
 

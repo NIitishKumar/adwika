@@ -2,10 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { ArrowLeft } from 'lucide-react';
+import { AuthUser } from '../types/auth.types';
 
 interface LoginPageProps {
-  currentUser: { name: string; email?: string; phone?: string } | null;
-  onLoginSuccess: (user: { name: string; email?: string; phone?: string }) => void;
+  currentUser: AuthUser | null;
+  onLoginSuccess: (user: AuthUser) => void;
   onLogout: () => void;
 }
 
@@ -28,7 +29,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <span>Back</span>
         </button>
 
-        {/* Current brand logo display in light theme */}
         <div
           onClick={() => navigate('/')}
           className="cursor-pointer flex flex-col items-center"
@@ -43,7 +43,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         <div className="w-12" />
       </div>
 
-      {/* Main Login Card matching prototype in light theme */}
+      {/* Main Login Card */}
       <div className="w-full max-w-4xl my-auto flex justify-center animate-fadeIn">
         <LoginForm
           currentUser={currentUser}
@@ -53,7 +53,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         />
       </div>
 
-      {/* Footer subtle imprint */}
+      {/* Footer */}
       <div className="pt-8 text-center text-[10px] tracking-widest uppercase text-neutral-400 font-mono">
         ADWIKA · CONTEMPORARY INDIAN DESIGN · HEIRLOOMS
       </div>

@@ -20,3 +20,34 @@ function resolveApiBaseUrl(): string {
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
+
+/**
+ * Authenticated fetch wrapper for admin API calls.
+ * Automatically injects `Authorization: Bearer <token>` and `credentials: 'include'`
+ * (for the HttpOnly cookie) on every request.
+ * Throws on 401 so callers can handle session expiry.
+ */
+export async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  // Lazy import to avoid circular dependency
+  const { getAuthToken, clearAuthSession } = await import('@/config/auth.config');
+
+  const token = getAuthToken();
+  const headers = new Headers(init?.headers);
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    headers,
+    credentials: 'include',
+  });
+
+  // If server rejects with 401, clear stale session
+  if (response.status === 401) {
+    clearAuthSession();
+  }
+
+  return response;
+}

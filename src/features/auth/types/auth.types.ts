@@ -1,12 +1,11 @@
 export interface SendOtpPayload {
-  phone: string;
+  email: string;
 }
 
 export interface SendOtpResponseData {
   id: string;
-  phone: string;
+  email: string;
   isNewUser: boolean;
-  otp?: string;
   expiresAt?: string;
 }
 
@@ -15,10 +14,24 @@ export interface SendOtpResponse {
   data: SendOtpResponseData;
 }
 
+export interface VerifyOtpPayload {
+  email: string;
+  otp: string;
+}
+
 export interface AuthUser {
-  id?: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  role?: string;
+  id: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+}
+
+export interface VerifyOtpResponseData {
+  user: AuthUser;
+  token: string;
+}
+
+export interface VerifyOtpResponse {
+  message: string;
+  data: VerifyOtpResponseData;
 }

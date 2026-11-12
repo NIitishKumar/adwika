@@ -1,26 +1,25 @@
 import React, { useState } from 'react';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
-import { ArrowRight, Lock, Phone, CheckCircle2, RotateCcw, AlertCircle } from 'lucide-react';
+import { ArrowRight, Mail, CheckCircle2, RotateCcw, AlertCircle } from 'lucide-react';
 import { validateWithZod } from '@/lib/validation/zod-formik';
 import {
-  phoneLoginSchema,
-  otpVerificationSchema,
   emailLoginSchema,
-  PhoneLoginFormData,
-  OtpVerificationFormData,
+  otpVerificationSchema,
   EmailLoginFormData,
+  OtpVerificationFormData,
 } from '../schemas/auth.schema';
 import { authService } from '../services/auth.service';
-import { SendOtpResponseData } from '../types/auth.types';
+import { AuthUser } from '../types/auth.types';
+import { saveAuthSession } from '@/config/auth.config';
 
 interface LoginFormProps {
-  onSuccess: (user: { name: string; email?: string; phone?: string }) => void;
+  onSuccess: (user: AuthUser) => void;
   onClose?: () => void;
-  currentUser?: { name: string; email?: string; phone?: string } | null;
+  currentUser?: AuthUser | null;
   onLogout?: () => void;
 }
 
-type AuthMode = 'phone' | 'otp' | 'email';
+type AuthStep = 'email' | 'otp';
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   onSuccess,
@@ -28,45 +27,39 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   currentUser,
   onLogout,
 }) => {
-  const [authMode, setAuthMode] = useState<AuthMode>('phone');
-  const [rawPhone, setRawPhone] = useState<string>('');
-  const [phoneForOtp, setPhoneForOtp] = useState<string>('');
+  const [authStep, setAuthStep] = useState<AuthStep>('email');
+  const [emailForOtp, setEmailForOtp] = useState<string>('');
   const [countdown, setCountdown] = useState<number>(30);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [receivedOtp, setReceivedOtp] = useState<string | null>(null);
-  const [otpUserMeta, setOtpUserMeta] = useState<SendOtpResponseData | null>(null);
   const [isResending, setIsResending] = useState<boolean>(false);
 
-  // Countdown timer for OTP
+  // Countdown timer for OTP resend
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (authMode === 'otp' && countdown > 0) {
+    if (authStep === 'otp' && countdown > 0) {
       timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     }
     return () => clearTimeout(timer);
-  }, [authMode, countdown]);
+  }, [authStep, countdown]);
 
-  // Handle phone submit -> calls backend API POST /api/v1/users/send-otp
-  const handlePhoneSubmit = async (
-    values: PhoneLoginFormData,
-    { setSubmitting, setFieldError }: FormikHelpers<PhoneLoginFormData>
+  // Handle email submit -> calls backend API POST /api/v1/users/send-otp
+  const handleEmailSubmit = async (
+    values: EmailLoginFormData,
+    { setSubmitting, setFieldError }: FormikHelpers<EmailLoginFormData>
   ) => {
     setSubmitting(true);
     setServerError(null);
 
     try {
-      const response = await authService.sendOtp(values.phone);
-      setRawPhone(values.phone);
-      setPhoneForOtp(`+91 ${values.phone}`);
-      setReceivedOtp(response.data.otp || null);
-      setOtpUserMeta(response.data);
+      await authService.sendOtp(values.email);
+      setEmailForOtp(values.email);
       setCountdown(30);
-      setAuthMode('otp');
+      setAuthStep('otp');
     } catch (err: any) {
       const message = err.message || 'Failed to send OTP. Please try again.';
       setServerError(message);
-      setFieldError('phone', message);
+      setFieldError('email', message);
     } finally {
       setSubmitting(false);
     }
@@ -74,14 +67,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   // Handle resending OTP via backend API
   const handleResendOtp = async () => {
-    if (!rawPhone || isResending) return;
+    if (!emailForOtp || isResending) return;
     setIsResending(true);
     setServerError(null);
 
     try {
-      const response = await authService.sendOtp(rawPhone);
-      setReceivedOtp(response.data.otp || null);
-      setOtpUserMeta(response.data);
+      await authService.sendOtp(emailForOtp);
       setCountdown(30);
     } catch (err: any) {
       setServerError(err.message || 'Failed to resend OTP. Please try again.');
@@ -90,7 +81,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     }
   };
 
-  // Handle OTP verification
+  // Handle OTP verification -> calls backend API POST /api/v1/users/verify-otp
   const handleOtpSubmit = async (
     values: OtpVerificationFormData,
     { setSubmitting, setFieldError }: FormikHelpers<OtpVerificationFormData>
@@ -98,80 +89,55 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     setSubmitting(true);
     setServerError(null);
 
-    // If an OTP was received from the server (e.g. dev mode), verify it matches
-    if (receivedOtp && values.otp !== receivedOtp) {
-      setFieldError('otp', 'Incorrect OTP. Please enter the valid 6-digit code.');
+    try {
+      const response = await authService.verifyOtp(emailForOtp, values.otp);
+      const { user, token } = response.data;
+
+      // Persist session to sessionStorage with 2-day expiry
+      saveAuthSession(user, token);
+
+      setSuccessToast('Verification successful. Welcome to Adwika!');
+      setTimeout(() => {
+        onSuccess(user);
+        if (onClose) onClose();
+      }, 900);
+    } catch (err: any) {
+      const message = err.message || 'Invalid OTP. Please try again.';
+      setServerError(message);
+      setFieldError('otp', message);
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    await new Promise((r) => setTimeout(r, 400));
-    setSubmitting(false);
-
-    setSuccessToast('Verification successful. Welcome to Adwika!');
-    setTimeout(() => {
-      const patronSuffix = rawPhone ? rawPhone.slice(-4) : phoneForOtp.slice(-4);
-      onSuccess({
-        name: `Patron ${patronSuffix}`,
-        phone: phoneForOtp,
-      });
-      if (onClose) onClose();
-    }, 900);
   };
 
-  // Handle Email login submit
-  const handleEmailSubmit = async (
-    values: EmailLoginFormData,
-    { setSubmitting }: FormikHelpers<EmailLoginFormData>
-  ) => {
-    setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setSubmitting(false);
-
-    const extractedName = values.email.split('@')[0];
-    const formattedName =
-      extractedName.charAt(0).toUpperCase() + extractedName.slice(1);
-
-    setSuccessToast(`Welcome back, ${formattedName}!`);
-    setTimeout(() => {
-      onSuccess({
-        name: formattedName,
-        email: values.email,
-      });
-      if (onClose) onClose();
-    }, 900);
-  };
-
-  // If already logged in, show user patron details
+  // If already logged in, show user details
   if (currentUser) {
     return (
       <div className="p-8 sm:p-12 text-center bg-[#fcfbfa] text-neutral-900 flex flex-col items-center">
         <div className="w-16 h-16 rounded-full bg-[#f4ede4] border border-[#e2d6c7] flex items-center justify-center text-[#54382c] mb-4">
           <span className="font-serif text-2xl font-light">
-            {currentUser.name.charAt(0)}
+            {currentUser.email.charAt(0).toUpperCase()}
           </span>
         </div>
         <h3 className="font-serif text-2xl text-neutral-900 tracking-wide font-normal mb-1">
-          {currentUser.name}
+          {currentUser.email.split('@')[0]}
         </h3>
         <p className="text-xs text-neutral-500 font-sans mb-6">
-          {currentUser.phone || currentUser.email}
+          {currentUser.email}
         </p>
 
         <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-5 text-left mb-6 space-y-3">
           <div className="flex justify-between text-xs">
-            <span className="text-neutral-500">Membership Tier</span>
+            <span className="text-neutral-500">Account Status</span>
             <span className="font-medium text-[#54382c] tracking-wider uppercase">
-              Patrons Circle
+              {currentUser.isActive ? 'Active' : 'Inactive'}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span className="text-neutral-500">Concierge Access</span>
-            <span className="text-neutral-700">Dedicated Priority</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-neutral-500">Curated Dispatch</span>
-            <span className="text-neutral-700">Insured Worldwide</span>
+            <span className="text-neutral-500">Role</span>
+            <span className="text-neutral-700 capitalize">
+              {currentUser.role.toLowerCase()}
+            </span>
           </div>
         </div>
 
@@ -187,22 +153,15 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-12 w-full max-w-4xl bg-[#fcfbfa] shadow-2xl overflow-hidden border border-[#e8e4dc]">
-      {/* LEFT COLUMN: Editorial uruli still life matching prototype */}
+      {/* LEFT COLUMN: Editorial uruli still life */}
       <div className="hidden md:flex md:col-span-5 relative flex-col justify-between p-8 overflow-hidden min-h-[580px] select-none">
-        {/* Background photo: vintage brass uruli with floating jasmine in haveli */}
         <img
           src="/images/login-uruli.jpg"
           alt="Adwika Heritage Uruli with Jasmine"
           className="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.88] contrast-105"
         />
-
-        {/* Soft warm vignette */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/50" />
-
-        {/* Top spacer */}
         <div className="relative z-10" />
-
-        {/* Center: Brand hallmark & tagline */}
         <div className="relative z-10 text-center flex flex-col items-center px-4">
           <img
             src="/images/adwika-logo.png"
@@ -214,8 +173,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             A STORY OF YOU
           </p>
         </div>
-
-        {/* Bottom Tagline verbatim from prototype */}
         <div className="relative z-10 text-center pt-6 border-t border-white/20">
           <p className="text-[9px] tracking-[0.25em] uppercase text-neutral-300 font-mono">
             TRADITION &nbsp;|&nbsp; CRAFT &nbsp;|&nbsp; CONTEMPORARY
@@ -223,7 +180,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Light Theme Form matching prototype */}
+      {/* RIGHT COLUMN: Form */}
       <div className="col-span-1 md:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between relative bg-[#fcfbfa] text-neutral-900">
         {/* Close Button if modal */}
         {onClose && (
@@ -249,33 +206,29 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           </div>
         ) : (
           <div>
-            {/* Header Titles matching prototype */}
+            {/* Header */}
             <div className="mb-8">
               <span className="font-serif italic text-2xl text-[#8d674f] block leading-none mb-1">
                 Welcome
               </span>
               <h2 className="font-serif text-3xl sm:text-4xl text-[#231f1d] font-normal tracking-tight">
-                {authMode === 'phone'
+                {authStep === 'email'
                   ? 'Login to Adwika'
-                  : authMode === 'otp'
-                  ? 'Enter Verification Code'
-                  : 'Sign in with Email'}
+                  : 'Enter Verification Code'}
               </h2>
               <p className="text-xs sm:text-sm text-[#6e6863] font-sans font-light mt-2 leading-relaxed">
-                {authMode === 'phone'
-                  ? 'Continue with your phone number to receive a one time password (OTP).'
-                  : authMode === 'otp'
-                  ? `Enter the 6-digit OTP sent to ${phoneForOtp}`
-                  : 'Enter your email and password to access your curated heirlooms.'}
+                {authStep === 'email'
+                  ? 'Enter your email address to receive a one-time password (OTP).'
+                  : `Enter the 6-digit OTP sent to ${emailForOtp}`}
               </p>
             </div>
 
-            {/* 1. Phone Number Step (Default from prototype) */}
-            {authMode === 'phone' && (
-              <Formik<PhoneLoginFormData>
-                initialValues={{ countryCode: '+91', phone: '' }}
-                validate={validateWithZod(phoneLoginSchema)}
-                onSubmit={handlePhoneSubmit}
+            {/* 1. Email Step */}
+            {authStep === 'email' && (
+              <Formik<EmailLoginFormData>
+                initialValues={{ email: '' }}
+                validate={validateWithZod(emailLoginSchema)}
+                onSubmit={handleEmailSubmit}
               >
                 {({ isSubmitting }) => (
                   <Form className="space-y-6">
@@ -288,32 +241,27 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
                     <div>
                       <label className="block text-xs font-medium text-[#4a4541] mb-2 uppercase tracking-wider">
-                        Phone Number
+                        Email Address
                       </label>
                       <div className="flex border border-[#dfdad2] bg-[#faf8f5] focus-within:border-[#54382c] transition-colors shadow-inner">
-                        {/* Fixed Indian Country Badge matching prototype */}
-                        <div className="flex items-center gap-1.5 bg-transparent text-xs sm:text-sm font-sans px-3.5 py-3 border-r border-[#dfdad2] text-neutral-800 select-none">
-                          <span className="text-base leading-none">🇮🇳</span>
-                          <span className="font-medium">+91</span>
+                        <div className="flex items-center px-3.5 py-3 border-r border-[#dfdad2] text-neutral-500">
+                          <Mail size={16} />
                         </div>
-
-                        {/* Phone Number Input */}
                         <Field
-                          type="tel"
-                          name="phone"
-                          placeholder="98765 43210"
-                          maxLength={10}
+                          type="email"
+                          name="email"
+                          placeholder="you@example.com"
                           className="flex-1 bg-transparent px-4 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 font-sans"
                         />
                       </div>
                       <ErrorMessage
-                        name="phone"
+                        name="email"
                         component="p"
                         className="text-xs text-red-600 mt-1 font-sans"
                       />
                     </div>
 
-                    {/* SEND OTP Button matching prototype: rich brown button with arrow */}
+                    {/* SEND OTP Button */}
                     <button
                       type="submit"
                       disabled={isSubmitting}
@@ -322,66 +270,24 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                       <span>{isSubmitting ? 'SENDING OTP...' : 'SEND OTP'}</span>
                       <ArrowRight size={14} />
                     </button>
-
-                    {/* OR Divider */}
-                    <div className="relative flex items-center justify-center my-6">
-                      <div className="border-t border-[#e8e4dc] w-full" />
-                      <span className="bg-[#fcfbfa] px-3 text-[10px] uppercase tracking-widest text-[#938d87] font-mono absolute">
-                        OR
-                      </span>
-                    </div>
-
-                    {/* CONTINUE WITH EMAIL Button matching prototype */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setServerError(null);
-                        setAuthMode('email');
-                      }}
-                      className="w-full bg-[#f8f6f2] hover:bg-[#efebe4] text-[#4a4541] hover:text-[#231f1d] border border-[#dfdad2] py-3 px-6 text-xs tracking-widest uppercase font-sans font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <Lock size={13} className="text-[#8d674f]" />
-                      <span>CONTINUE WITH EMAIL</span>
-                    </button>
                   </Form>
                 )}
               </Formik>
             )}
 
             {/* 2. OTP Verification Step */}
-            {authMode === 'otp' && (
+            {authStep === 'otp' && (
               <Formik<OtpVerificationFormData>
                 initialValues={{ otp: '' }}
                 validate={validateWithZod(otpVerificationSchema)}
                 onSubmit={handleOtpSubmit}
               >
-                {({ isSubmitting, setFieldValue }) => (
+                {({ isSubmitting }) => (
                   <Form className="space-y-6 animate-fadeIn">
                     {serverError && (
                       <div className="bg-red-50 border border-red-200 text-red-700 p-3 text-xs flex items-center gap-2">
                         <AlertCircle size={14} className="shrink-0 text-red-500" />
                         <span>{serverError}</span>
-                      </div>
-                    )}
-
-                    {/* Dev / Test OTP Helper Display */}
-                    {receivedOtp && (
-                      <div className="bg-[#f5ede2] border border-[#d9c4ad] p-3 text-xs flex items-center justify-between text-[#54382c]">
-                        <div>
-                          <span className="text-[10px] uppercase tracking-wider block text-[#8d674f] font-mono">
-                            Test / Demo OTP Code
-                          </span>
-                          <span className="font-mono text-base font-semibold tracking-widest text-[#231f1d]">
-                            {receivedOtp}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setFieldValue('otp', receivedOtp)}
-                          className="text-xs uppercase tracking-wider underline font-medium hover:text-[#231f1d] cursor-pointer"
-                        >
-                          Auto-fill
-                        </button>
                       </div>
                     )}
 
@@ -414,17 +320,17 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                       <ArrowRight size={14} />
                     </button>
 
-                    {/* Resend & Change Number */}
+                    {/* Resend & Change Email */}
                     <div className="flex items-center justify-between text-xs text-[#6e6863] pt-2">
                       <button
                         type="button"
                         onClick={() => {
                           setServerError(null);
-                          setAuthMode('phone');
+                          setAuthStep('email');
                         }}
                         className="hover:text-neutral-900 transition-colors underline underline-offset-4"
                       >
-                        Change Phone
+                        Change Email
                       </button>
 
                       {countdown > 0 ? (
@@ -447,77 +353,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 )}
               </Formik>
             )}
-
-            {/* 3. Email Login Step */}
-            {authMode === 'email' && (
-              <Formik<EmailLoginFormData>
-                initialValues={{ email: '', password: '' }}
-                validate={validateWithZod(emailLoginSchema)}
-                onSubmit={handleEmailSubmit}
-              >
-                {({ isSubmitting }) => (
-                  <Form className="space-y-5 animate-fadeIn">
-                    <div>
-                      <label className="block text-xs font-medium text-[#4a4541] mb-1.5 uppercase tracking-wider">
-                        Email Address
-                      </label>
-                      <Field
-                        type="email"
-                        name="email"
-                        placeholder="client@adwika.in"
-                        className="w-full border border-[#dfdad2] bg-[#faf8f5] px-4 py-3 text-sm text-neutral-900 outline-none focus:border-[#54382c] transition-colors"
-                      />
-                      <ErrorMessage
-                        name="email"
-                        component="p"
-                        className="text-xs text-red-600 mt-1 font-sans"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-[#4a4541] mb-1.5 uppercase tracking-wider">
-                        Password
-                      </label>
-                      <Field
-                        type="password"
-                        name="password"
-                        placeholder="••••••••"
-                        className="w-full border border-[#dfdad2] bg-[#faf8f5] px-4 py-3 text-sm text-neutral-900 outline-none focus:border-[#54382c] transition-colors"
-                      />
-                      <ErrorMessage
-                        name="password"
-                        component="p"
-                        className="text-xs text-red-600 mt-1 font-sans"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full bg-[#54382c] hover:bg-[#3e271d] text-white py-3.5 px-6 text-xs tracking-widest uppercase font-sans font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-                    >
-                      <span>{isSubmitting ? 'SIGNING IN...' : 'SIGN IN WITH EMAIL'}</span>
-                      <ArrowRight size={14} />
-                    </button>
-
-                    <div className="text-center pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setAuthMode('phone')}
-                        className="text-xs text-[#54382c] hover:underline flex items-center justify-center gap-1.5 mx-auto"
-                      >
-                        <Phone size={12} />
-                        <span>Sign in with Phone OTP instead</span>
-                      </button>
-                    </div>
-                  </Form>
-                )}
-              </Formik>
-            )}
           </div>
         )}
 
-        {/* Footer Legal Terms matching prototype */}
+        {/* Footer Legal Terms */}
         <div className="mt-8 pt-4 border-t border-[#e8e4dc] text-center">
           <p className="text-[11px] text-[#7d7770] font-sans leading-relaxed">
             By continuing, you agree to our{' '}

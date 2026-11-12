@@ -3,7 +3,7 @@ import {
   CreateProductSubCategoryDto,
   UpdateProductSubCategoryDto,
 } from '../types/productSubCategory.types';
-import { API_BASE_URL } from '@/config/api.config';
+import { API_BASE_URL, authFetch } from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_sub_categories_v1';
 
@@ -133,7 +133,7 @@ export const productSubCategoryService = {
         ? `${API_BASE_URL}/product-sub-categories?categoryId=${encodeURIComponent(categoryId)}`
         : `${API_BASE_URL}/product-sub-categories`;
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -179,7 +179,7 @@ export const productSubCategoryService = {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/product-sub-categories`, {
+      const response = await authFetch(`${API_BASE_URL}/product-sub-categories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,7 +253,7 @@ export const productSubCategoryService = {
     }
 
     try {
-      let response = await fetch(`${API_BASE_URL}/product-sub-categories/${id}`, {
+      let response = await authFetch(`${API_BASE_URL}/product-sub-categories/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +263,7 @@ export const productSubCategoryService = {
       });
 
       if (response.status === 404 || response.status === 405) {
-        response = await fetch(`${API_BASE_URL}/product-sub-categories/${id}`, {
+        response = await authFetch(`${API_BASE_URL}/product-sub-categories/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -326,7 +326,7 @@ export const productSubCategoryService = {
    */
   async delete(id: string): Promise<{ message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/product-sub-categories/${id}`, {
+      const response = await authFetch(`${API_BASE_URL}/product-sub-categories/${id}`, {
         method: 'DELETE',
         headers: {
           Accept: 'application/json',

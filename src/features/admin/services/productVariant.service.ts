@@ -3,7 +3,7 @@ import {
   CreateProductVariantDto,
   UpdateProductVariantDto,
 } from '../types/productVariant.types';
-import { API_BASE_URL } from '@/config/api.config';
+import { API_BASE_URL, authFetch } from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_variants_v1';
 
@@ -209,7 +209,7 @@ export const productVariantService = {
         ? `${API_BASE_URL}/product-variants?productId=${encodeURIComponent(productId)}`
         : `${API_BASE_URL}/product-variants`;
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         headers: { Accept: 'application/json' },
       });
 
@@ -246,7 +246,7 @@ export const productVariantService = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/product-variants/${encodeURIComponent(cleanId)}`, {
+      const response = await authFetch(`${API_BASE_URL}/product-variants/${encodeURIComponent(cleanId)}`, {
         headers: { Accept: 'application/json' },
       });
 
@@ -307,7 +307,7 @@ export const productVariantService = {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/product-variants`, {
+      const response = await authFetch(`${API_BASE_URL}/product-variants`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -409,7 +409,7 @@ export const productVariantService = {
     }
 
     try {
-      let response = await fetch(`${API_BASE_URL}/product-variants/${id}`, {
+      let response = await authFetch(`${API_BASE_URL}/product-variants/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -420,7 +420,7 @@ export const productVariantService = {
 
       if (!response.ok && response.status === 404) {
         // Fallback to PUT if backend implements PUT
-        response = await fetch(`${API_BASE_URL}/product-variants/${id}`, {
+        response = await authFetch(`${API_BASE_URL}/product-variants/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -491,7 +491,7 @@ export const productVariantService = {
    */
   async delete(id: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/product-variants/${id}`, {
+      const response = await authFetch(`${API_BASE_URL}/product-variants/${id}`, {
         method: 'DELETE',
         headers: { Accept: 'application/json' },
       });

@@ -3,7 +3,7 @@ import {
   CreateProductCategoryDto,
   UpdateProductCategoryDto,
 } from '../types/productCategory.types';
-import { API_BASE_URL } from '@/config/api.config';
+import { API_BASE_URL, authFetch } from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_categories_v1';
 
@@ -125,7 +125,7 @@ export const productCategoryService = {
    */
   async getAll(): Promise<{ data: ProductCategory[]; fromApi: boolean }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/product-categories`, {
+      const response = await authFetch(`${API_BASE_URL}/product-categories`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -164,7 +164,7 @@ export const productCategoryService = {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/product-categories`, {
+      const response = await authFetch(`${API_BASE_URL}/product-categories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +242,7 @@ export const productCategoryService = {
     if (dto.is_active !== undefined) payload.isActive = Boolean(dto.is_active);
 
     try {
-      let response = await fetch(`${API_BASE_URL}/product-categories/${id}`, {
+      let response = await authFetch(`${API_BASE_URL}/product-categories/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +252,7 @@ export const productCategoryService = {
       });
 
       if (response.status === 404 || response.status === 405) {
-        response = await fetch(`${API_BASE_URL}/product-categories/${id}`, {
+        response = await authFetch(`${API_BASE_URL}/product-categories/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -317,7 +317,7 @@ export const productCategoryService = {
    */
   async delete(id: string): Promise<{ message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/product-categories/${id}`, {
+      const response = await authFetch(`${API_BASE_URL}/product-categories/${id}`, {
         method: 'DELETE',
         headers: {
           Accept: 'application/json',

@@ -9,10 +9,12 @@ import { JournalPage } from '@/features/journal/JournalPage';
 import { AboutPage } from '@/features/about/AboutPage';
 import { ProductQuickView } from '@/features/products';
 import { AccountModal, LoginPage } from '@/features/auth';
+import type { AuthUser } from '@/features/auth';
 import { CartDrawer } from '@/features/cart';
 import { AdminRoutes } from '@/features/admin';
 import { Product, CartItem, RegionOption } from '@/types';
 import { REGIONS, CURRENCY_RATES, PRODUCTS } from '@/data/products';
+import { getCurrentUser, clearAuthSession, isLoggedIn } from '@/config/auth.config';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -30,8 +32,13 @@ const AppContent: React.FC = () => {
     },
   ]);
 
-  // Auth State
-  const [currentUser, setCurrentUser] = useState<{ name: string; email?: string; phone?: string } | null>(null);
+  // Auth State — hydrate from sessionStorage on mount
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getCurrentUser());
+
+  const handleLogout = () => {
+    clearAuthSession();
+    setCurrentUser(null);
+  };
 
   // QuickView State
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
@@ -97,8 +104,11 @@ const AppContent: React.FC = () => {
       {/* Main Routed Content */}
       <main className="flex-1">
         <Routes>
-          {/* Admin Routes */}
-          <Route path="/admin/*" element={<AdminRoutes />} />
+          {/* Admin Routes — protected, requires login */}
+          <Route
+            path="/admin/*"
+            element={isLoggedIn() ? <AdminRoutes /> : <Navigate to="/" replace />}
+          />
 
           {/* Storefront Routes */}
           <Route
@@ -193,7 +203,7 @@ const AppContent: React.FC = () => {
               <LoginPage
                 currentUser={currentUser}
                 onLoginSuccess={(user) => setCurrentUser(user)}
-                onLogout={() => setCurrentUser(null)}
+                onLogout={handleLogout}
               />
             }
           />
@@ -230,7 +240,7 @@ const AppContent: React.FC = () => {
             onClose={() => setIsAccountModalOpen(false)}
             currentUser={currentUser}
             onLoginSuccess={(user) => setCurrentUser(user)}
-            onLogout={() => setCurrentUser(null)}
+            onLogout={handleLogout}
           />
 
           <CartDrawer

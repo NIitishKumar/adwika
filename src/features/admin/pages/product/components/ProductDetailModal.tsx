@@ -30,6 +30,8 @@ import { ProductCategory } from '../../../types/productCategory.types';
 import { ProductSubCategory } from '../../../types/productSubCategory.types';
 import { ProductImage } from '../../../types/productImage.types';
 import { productImageService } from '../../../services/productImage.service';
+import { ProductVariant } from '../../../types/productVariant.types';
+import { productVariantService } from '../../../services/productVariant.service';
 
 export interface GalleryPhotoItem {
   id: string;
@@ -73,6 +75,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
   const [imagesFromApi, setImagesFromApi] = useState<boolean>(false);
 
+  // Live Product Variants States (from GET /api/v1/product-variants?productId=:id)
+  const [apiVariants, setApiVariants] = useState<ProductVariant[]>([]);
+  const [isLoadingVariants, setIsLoadingVariants] = useState<boolean>(false);
+
   // Fetch product images from GET /api/v1/product-images?productId=:id
   const loadGalleryImages = useCallback(async (targetProduct: Product) => {
     const targetId =
@@ -95,15 +101,37 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
   }, []);
 
+  // Fetch product variants from GET /api/v1/product-variants?productId=:id
+  const loadProductVariants = useCallback(async (targetProduct: Product) => {
+    const targetId =
+      targetProduct.id ||
+      targetProduct.productId ||
+      targetProduct.uniqueId ||
+      '';
+    if (!targetId) return;
+
+    setIsLoadingVariants(true);
+    try {
+      const res = await productVariantService.getAll(targetId);
+      setApiVariants(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch product variants from API:', err);
+    } finally {
+      setIsLoadingVariants(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen && product) {
       loadGalleryImages(product);
+      loadProductVariants(product);
     } else {
       setApiImages([]);
+      setApiVariants([]);
       setActivePhotoIndex(0);
       setIsLightboxOpen(false);
     }
-  }, [isOpen, product, loadGalleryImages]);
+  }, [isOpen, product, loadGalleryImages, loadProductVariants]);
 
   // Aggregate all unique gallery photos (from /product-images, product.imageUrl, and product.images)
   const allGalleryPhotos = useMemo<GalleryPhotoItem[]>(() => {
@@ -741,67 +769,125 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 </div>
 
-                {/* Optional Variants Table (if provided by API) */}
-                {product.variants && product.variants.length > 0 && (
-                  <div className="p-4 rounded-lg bg-[#181615] border border-[#2b2723] space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-[#c9a87c]">
-                        <Tag size={13} />
-                        <span>Garment Variants & Stock</span>
-                      </div>
-                      <span className="font-mono text-[11px] text-neutral-400">
-                        {product.variants.length} variant(s)
-                      </span>
+                {/* Product Variants & Stock from API /api/v1/product-variants */}
+                <div className="p-4 rounded-lg bg-[#181615] border border-[#2b2723] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-[#c9a87c]">
+                      <Tag size={13} />
+                      <span>Garment Variants & Stock (/product-variants)</span>
                     </div>
+                    {isLoadingVariants ? (
+                      <span className="inline-flex items-center gap-1 font-mono text-[10px] text-neutral-400">
+                        <RefreshCw size={11} className="animate-spin text-[#c9a87c]" />
+                        <span>Loading variants...</span>
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[11px] text-neutral-400">
+                        {apiVariants.length > 0 ? apiVariants.length : (product.variants?.length || 0)} variant(s)
+                      </span>
+                    )}
+                  </div>
 
+                  {isLoadingVariants ? (
+                    <div className="p-6 text-center border border-[#292420] rounded bg-[#100f0e]">
+                      <div className="w-6 h-6 border-2 border-[#c9a87c] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      <p className="text-xs text-neutral-400 font-sans">
+                        Fetching live variants from <code className="font-mono text-[#c9a87c]">/api/v1/product-variants?productId={displayId}</code>...
+                      </p>
+                    </div>
+                  ) : (apiVariants.length > 0 || (product.variants && product.variants.length > 0)) ? (
                     <div className="overflow-x-auto border border-[#292420] rounded bg-[#100f0e]">
                       <table className="w-full text-left text-xs text-neutral-300">
                         <thead className="bg-[#191715] text-[10px] uppercase font-mono text-[#c9a87c] border-b border-[#292420]">
                           <tr>
-                            <th className="py-2 px-3">SKU</th>
-                            <th className="py-2 px-3">Size / Fit</th>
-                            <th className="py-2 px-3">Color</th>
-                            <th className="py-2 px-3">Price</th>
-                            <th className="py-2 px-3">Stock</th>
-                            <th className="py-2 px-3">Status</th>
+                            <th className="py-2.5 px-3">SKU</th>
+                            <th className="py-2.5 px-3">Size / Fit</th>
+                            <th className="py-2.5 px-3">Color</th>
+                            <th className="py-2.5 px-3">Price</th>
+                            <th className="py-2.5 px-3">Stock</th>
+                            <th className="py-2.5 px-3">Status</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#221f1c] font-sans text-xs">
-                          {product.variants.map((v: any, idx: number) => (
-                            <tr key={v.id || v.sku || idx} className="hover:bg-[#181513]">
-                              <td className="py-2 px-3 font-mono text-[11px] text-neutral-200">
-                                {v.sku || '—'}
-                              </td>
-                              <td className="py-2 px-3">
-                                {v.fitSize?.name || v.size || '—'}
-                              </td>
-                              <td className="py-2 px-3">
-                                {v.productColor?.name || v.color || '—'}
-                              </td>
-                              <td className="py-2 px-3 font-mono text-[#e0cfba]">
-                                ₹{(v.price ?? product.basePrice).toLocaleString('en-IN')}
-                              </td>
-                              <td className="py-2 px-3 font-mono">
-                                {v.stockQuantity ?? v.stock ?? '—'}
-                              </td>
-                              <td className="py-2 px-3">
-                                <span
-                                  className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
-                                    v.isActive !== false
-                                      ? 'bg-emerald-950/60 text-emerald-400'
-                                      : 'bg-neutral-800 text-neutral-400'
-                                  }`}
-                                >
-                                  {v.isActive !== false ? 'Active' : 'Inactive'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                          {(apiVariants.length > 0 ? apiVariants : product.variants || []).map((v: any, idx: number) => {
+                            const sizeLabel = v.fitSize?.name || v.fitSize?.fitCode || v.size || '—';
+                            const colorName = v.productColor?.name || v.color || '—';
+                            const colorCode = v.productColor?.code || v.colorCode || '#1A1A1A';
+                            const priceVal = v.price != null ? Number(v.price) : product.basePrice;
+                            const compareVal = v.compareAtPrice != null ? Number(v.compareAtPrice) : null;
+                            const stockVal = Number(v.stockQuantity ?? v.stock ?? 0);
+
+                            return (
+                              <tr key={v.id || v.sku || idx} className="hover:bg-[#181513] transition-colors">
+                                <td className="py-2.5 px-3 font-mono text-[11px] text-neutral-200">
+                                  {v.sku || '—'}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#1a1715] border border-[#332a22] text-[#e0cfba]">
+                                    {sizeLabel}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className="w-3 h-3 rounded-full border border-black/40 shrink-0 shadow-inner"
+                                      style={{ backgroundColor: colorCode }}
+                                    />
+                                    <span className="text-xs text-neutral-200">{colorName}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                  <div className="flex items-baseline gap-1.5 font-mono">
+                                    <span className="text-[#e0cfba] font-medium">
+                                      ₹{priceVal.toLocaleString('en-IN')}
+                                    </span>
+                                    {compareVal && compareVal > priceVal && (
+                                      <span className="text-neutral-500 line-through text-[10px]">
+                                        ₹{compareVal.toLocaleString('en-IN')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono">
+                                  <span
+                                    className={`inline-flex items-center gap-1 text-[11px] font-medium ${
+                                      stockVal <= 0
+                                        ? 'text-rose-400'
+                                        : stockVal <= 5
+                                        ? 'text-amber-400'
+                                        : 'text-emerald-400'
+                                    }`}
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                    <span>{stockVal} units</span>
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span
+                                    className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
+                                      v.isActive !== false
+                                        ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+                                        : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                                    }`}
+                                  >
+                                    {v.isActive !== false ? 'Active' : 'Inactive'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="p-4 text-center border border-dashed border-[#292420] rounded bg-[#100f0e]">
+                      <p className="font-serif text-xs text-neutral-400">No Variants Registered</p>
+                      <p className="text-[11px] text-neutral-500 mt-0.5">
+                        No product variants found for ID <code className="font-mono text-neutral-400">{displayId}</code> via <code className="font-mono text-neutral-400">/api/v1/product-variants</code>.
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* System Audit Timestamps */}
                 <div className="flex flex-wrap items-center justify-between gap-4 p-3.5 rounded bg-[#100f0e] border border-[#24201c] text-[11px] font-mono text-neutral-400">

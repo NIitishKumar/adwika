@@ -67,9 +67,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       <CategoryGridSection onSelectCategory={handleSelectCategoryFromGrid} />
 
       {/* 3. Festive Edit Banner matching prototype */}
-      <div className="py-8 bg-[#f5f4ef]">
+      {/* <div className="py-8 bg-[#f5f4ef]">
         <FestiveEditBanner />
-      </div>
+      </div> */}
 
       {/* 4. Tradition Section (A closer look at Adwika) matching prototype */}
       <TraditionSection />
@@ -81,7 +81,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       />
 
       {/* 6. Beauty in the details (Editorial duo section) */}
-      <EditorialDetailsSection />
+      {/* <EditorialDetailsSection /> */}
 
       {/* 7. Notes on Craft & Culture (From the journal — 3 stories) */}
       <FromJournalSection />

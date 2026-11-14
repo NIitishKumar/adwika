@@ -35,30 +35,63 @@ function saveStoredVariants(items: ProductVariant[]): void {
 
 function normalizeVariant(raw: any): ProductVariant {
   const id = raw?.id || raw?.uniqueId || raw?.variantId || raw?._id || `var-${Date.now()}`;
-  const productId = raw?.productId || raw?.product_id || raw?.product?.id || '';
+  const productId =
+    raw?.productId || raw?.product_id || raw?.product?.id || raw?.product?._id || '';
 
   // Fit size normalization
-  const fitSizeRaw = raw?.fitSize || raw?.fit_size;
-  const fitSizeId = raw?.fitSizeId || raw?.fit_size_id || fitSizeRaw?.id || '';
+  const fitSizeRaw = raw?.fitSize || raw?.fit_size || raw?.size;
+  const fitSizeId = raw?.fitSizeId || raw?.fit_size_id || fitSizeRaw?._id || fitSizeRaw?.id || '';
   const fitSize = fitSizeRaw
     ? {
-        id: fitSizeRaw?.id || fitSizeRaw?.uniqueId || fitSizeId,
+        id: String(fitSizeRaw?._id || fitSizeRaw?.id || fitSizeRaw?.uniqueId || fitSizeId),
         uniqueId: fitSizeRaw?.uniqueId,
-        name: fitSizeRaw?.name || '',
-        fitCode: fitSizeRaw?.fitCode || fitSizeRaw?.fit_code || fitSizeRaw?.code || '',
+        name: fitSizeRaw?.name || fitSizeRaw?.title || (typeof fitSizeRaw === 'string' ? fitSizeRaw : ''),
+        fitCode:
+          fitSizeRaw?.fitCode ||
+          fitSizeRaw?.fit_code ||
+          fitSizeRaw?.code ||
+          fitSizeRaw?.name ||
+          '',
         displayOrder: Number(fitSizeRaw?.displayOrder ?? fitSizeRaw?.display_order ?? 0),
       }
     : undefined;
 
   // Product color normalization
-  const colorRaw = raw?.productColor || raw?.product_color;
-  const productColorId = raw?.productColorId || raw?.product_color_id || colorRaw?.id || '';
+  const colorRaw = raw?.productColor || raw?.product_color || raw?.color;
+  const productColorId =
+    raw?.productColorId || raw?.product_color_id || colorRaw?._id || colorRaw?.id || '';
+  const rawColorName = colorRaw?.name || colorRaw?.title || (typeof colorRaw === 'string' ? colorRaw : '');
+  const rawColorCode =
+    raw?.product_color?.code ||
+    raw?.productColor?.code ||
+    colorRaw?.code ||
+    raw?.product_color?.hexCode ||
+    raw?.productColor?.hexCode ||
+    colorRaw?.hexCode ||
+    colorRaw?.hex ||
+    '';
+
+  const defaultColorHexMap: Record<string, string> = {
+    'maheshwari olive': '#556B2F',
+    'midnight blue': '#191970',
+    'rose': '#B76E79',
+    'ivory': '#FDFBF7',
+    'gold': '#C46210',
+    'black': '#111111',
+    'emerald': '#004D40',
+    'maroon': '#800000',
+    'ruby': '#841B2D',
+  };
+
+  const finalColorCode =
+    rawColorCode || defaultColorHexMap[rawColorName.toLowerCase().trim()] || '#2B2B2B';
+
   const productColor = colorRaw
     ? {
-        id: colorRaw?.id || colorRaw?.uniqueId || productColorId,
+        id: String(colorRaw?._id || colorRaw?.id || colorRaw?.uniqueId || productColorId),
         uniqueId: colorRaw?.uniqueId,
-        name: colorRaw?.name || '',
-        code: colorRaw?.code || '',
+        name: rawColorName,
+        code: finalColorCode,
       }
     : undefined;
 
@@ -66,7 +99,7 @@ function normalizeVariant(raw: any): ProductVariant {
   const prodRaw = raw?.product;
   const product = prodRaw
     ? {
-        id: prodRaw?.id || prodRaw?.uniqueId || productId,
+        id: String(prodRaw?._id || prodRaw?.id || prodRaw?.uniqueId || productId),
         uniqueId: prodRaw?.uniqueId,
         name: prodRaw?.name || '',
         slug: prodRaw?.slug || '',
@@ -105,20 +138,53 @@ export const productVariantService = {
   /**
    * 4.3 Product Variants (SKU, Stock & Pricing)
    * GET /api/v1/product-variants?productId=<id>&inStock=true
+   * Supported Controller: @Controller(['product-variants', 'variants'])
    */
   async getAll(
-    productId?: string,
-    inStock?: boolean
+    filter?:
+      | string
+      | {
+          productId?: string;
+          inStock?: boolean | string;
+          isActive?: boolean | string;
+          sku?: string;
+        },
+    inStockArg?: boolean
   ): Promise<{ data: ProductVariant[]; fromApi: boolean }> {
+    let productId: string | undefined;
+    let inStock: boolean | string | undefined = inStockArg;
+    let isActive: boolean | string | undefined;
+    let sku: string | undefined;
+
+    if (typeof filter === 'string') {
+      productId = filter.trim();
+    } else if (filter && typeof filter === 'object') {
+      productId = filter.productId?.trim();
+      if (filter.inStock !== undefined) inStock = filter.inStock;
+      if (filter.isActive !== undefined) isActive = filter.isActive;
+      if (filter.sku) sku = filter.sku.trim();
+    }
+
     try {
       const params = new URLSearchParams();
-      if (productId) params.append('productId', productId);
+      if (productId) {
+        params.append('productId', productId);
+      }
       if (inStock !== undefined) params.append('inStock', String(inStock));
+      if (isActive !== undefined) params.append('isActive', String(isActive));
+      if (sku) params.append('sku', sku);
 
       const qs = params.toString() ? `?${params.toString()}` : '';
-      const response = await authFetch(`${API_BASE_URL}/product-variants${qs}`, {
+      let response = await authFetch(`${API_BASE_URL}/product-variants${qs}`, {
         headers: { Accept: 'application/json' },
       });
+
+      // Fallback if the controller route is alias /variants
+      if (response.status === 404) {
+        response = await authFetch(`${API_BASE_URL}/variants${qs}`, {
+          headers: { Accept: 'application/json' },
+        });
+      }
 
       if (response.ok) {
         const json = await response.json();
@@ -134,7 +200,12 @@ export const productVariantService = {
     const stored = getStoredVariants();
     if (productId) {
       return {
-        data: stored.filter((v) => v.productId === productId),
+        data: stored.filter(
+          (v) =>
+            v.productId === productId ||
+            v.product?.id === productId ||
+            v.product?.slug === productId
+        ),
         fromApi: false,
       };
     }

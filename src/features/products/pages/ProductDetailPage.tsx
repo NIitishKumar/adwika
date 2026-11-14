@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PRODUCTS } from '@/data/products';
 import { CurrencyConfig, CartItem, Product } from '@/types';
 import { Button } from '@/components/ui';
 import { ProductCard } from '../ProductCard';
-import { Heart, Sparkles, ShieldCheck, ChevronDown, Check, ArrowLeft, Loader2 } from 'lucide-react';
+import { Heart, Sparkles, ShieldCheck, ChevronDown, Check, ArrowLeft, Loader2, Tag } from 'lucide-react';
 import { productService } from '@/features/admin/services/product.service';
 import { productImageService } from '@/features/admin/services/productImage.service';
+import { productVariantService } from '@/features/admin/services/productVariant.service';
+import { ProductVariant } from '@/features/admin/types/productVariant.types';
 
 interface ProductDetailPageProps {
   currency: CurrencyConfig;
@@ -29,7 +31,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [activeImage, setActiveImage] = useState<string>('');
   const [liveRelated, setLiveRelated] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [selectedSize, setSelectedSize] = useState<CartItem['size']>('M');
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [isLoadingVariants, setIsLoadingVariants] = useState<boolean>(false);
+  const [selectedColorId, setSelectedColorId] = useState<string>('');
+  const [selectedSize, setSelectedSize] = useState<string>('M');
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>('craft');
@@ -45,6 +50,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           const p = res.data;
           let images: string[] = p.imageUrl ? [p.imageUrl] : [];
 
+          // 1. Fetch gallery images
           try {
             const galleryRes = await productImageService.getByProductId(p.id || id);
             if (galleryRes.data && galleryRes.data.length > 0) {
@@ -55,6 +61,29 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             }
           } catch {
             // Optional gallery fetch
+          }
+
+          // 2. Fetch product variants from API: GET /api/v1/product-variants?productId=:id
+          const targetProductId = p.id || p.productId || p.uniqueId || id;
+          setIsLoadingVariants(true);
+          try {
+            const variantRes = await productVariantService.getAll(targetProductId);
+            if (mounted && variantRes.data && variantRes.data.length > 0) {
+              setVariants(variantRes.data);
+
+              // Auto-select initial variant's color and size
+              const firstActive = variantRes.data.find((v) => v.isActive) || variantRes.data[0];
+              if (firstActive) {
+                const colId = firstActive.productColorId || firstActive.productColor?.id;
+                if (colId) setSelectedColorId(colId);
+                const sz = firstActive.fitSize?.fitCode || firstActive.fitSize?.name;
+                if (sz) setSelectedSize(sz);
+              }
+            }
+          } catch (err) {
+            console.error('Failed to fetch product variants:', err);
+          } finally {
+            if (mounted) setIsLoadingVariants(false);
           }
 
           const primaryImg = images[0] || p.imageUrl || '/images/default-garment.jpg';
@@ -118,16 +147,152 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     };
   }, [id]);
 
-  const formatPrice = () => {
-    if (currency.code === 'INR') {
-      return `₹${product.priceINR.toLocaleString('en-IN')}`;
+  // Derived unique colors from variants API
+  const availableColors = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; code: string }>();
+    variants.forEach((v) => {
+      const colId = v.productColorId || v.productColor?.id;
+      if (colId && !map.has(colId)) {
+        map.set(colId, {
+          id: colId,
+          name: v.productColor?.name || 'Artisanal Hue',
+          code: v.productColor?.code || '#1A1A1A',
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [variants]);
+
+  // Derived available fit sizes strictly for the currently selected colorway
+  const availableSizes = useMemo(() => {
+    if (variants.length === 0) {
+      return product.sizes || ['XS', 'S', 'M', 'L', 'XL'];
     }
-    const converted = Math.round(product.priceINR * currency.rateFromINR);
+
+    // Filter variants that belong strictly to the currently selected color
+    const variantsForColor = selectedColorId
+      ? variants.filter(
+          (v) =>
+            v.productColorId === selectedColorId ||
+            v.productColor?.id === selectedColorId ||
+            v.productColor?.uniqueId === selectedColorId
+        )
+      : variants;
+
+    const source = variantsForColor.length > 0 ? variantsForColor : variants;
+
+    const sizeMap = new Map<string, { size: string; displayOrder: number }>();
+    source.forEach((v) => {
+      const sz = v.fitSize?.fitCode || v.fitSize?.name;
+      if (sz && !sizeMap.has(sz)) {
+        sizeMap.set(sz, {
+          size: sz,
+          displayOrder: v.fitSize?.displayOrder ?? 0,
+        });
+      }
+    });
+
+    if (sizeMap.size > 0) {
+      return Array.from(sizeMap.values())
+        .sort((a, b) => a.displayOrder - b.displayOrder)
+        .map((x) => x.size);
+    }
+
+    return ['XS', 'S', 'M', 'L', 'XL'];
+  }, [variants, selectedColorId, product.sizes]);
+
+  // Active variant matching selected color & size
+  const activeVariant = useMemo(() => {
+    if (variants.length === 0) return null;
+
+    const variantsForColor = selectedColorId
+      ? variants.filter(
+          (v) =>
+            v.productColorId === selectedColorId ||
+            v.productColor?.id === selectedColorId ||
+            v.productColor?.uniqueId === selectedColorId
+        )
+      : variants;
+
+    const pool = variantsForColor.length > 0 ? variantsForColor : variants;
+
+    return (
+      pool.find(
+        (v) => v.fitSize?.fitCode === selectedSize || v.fitSize?.name === selectedSize
+      ) ||
+      pool.find((v) => v.stockQuantity > 0) ||
+      pool[0]
+    );
+  }, [variants, selectedColorId, selectedSize]);
+
+  // Active Color derived from selection or active variant
+  const activeColor = useMemo(() => {
+    return (
+      availableColors.find((c) => c.id === selectedColorId) ||
+      (activeVariant?.productColor
+        ? {
+            id: activeVariant.productColorId || activeVariant.productColor.id,
+            name: activeVariant.productColor.name,
+            code: activeVariant.productColor.code,
+          }
+        : availableColors[0])
+    );
+  }, [availableColors, selectedColorId, activeVariant]);
+
+  // When clicking on a color swatch, switch to that color, show only its available fit sizes, and update price
+  const handleColorChange = (colorId: string) => {
+    setSelectedColorId(colorId);
+
+    const variantsForColor = variants.filter(
+      (v) =>
+        v.productColorId === colorId ||
+        v.productColor?.id === colorId ||
+        v.productColor?.uniqueId === colorId
+    );
+
+    if (variantsForColor.length > 0) {
+      // Find matching size variant in new color, or pick the first available size in this new color
+      const matchingVariant = variantsForColor.find(
+        (v) => v.fitSize?.fitCode === selectedSize || v.fitSize?.name === selectedSize
+      );
+
+      const targetVariant =
+        matchingVariant ||
+        variantsForColor.find((v) => v.stockQuantity > 0) ||
+        variantsForColor[0];
+
+      const newSize = targetVariant.fitSize?.fitCode || targetVariant.fitSize?.name;
+      if (newSize) {
+        setSelectedSize(newSize);
+      }
+    }
+  };
+
+  // When clicking on a size within the selected colorway
+  const handleSizeChange = (size: string) => {
+    setSelectedSize(size);
+  };
+
+  // Pricing & Stock resolved dynamically from selected variant or base product
+  const currentPriceINR = activeVariant?.price != null ? activeVariant.price : product.priceINR;
+  const compareAtPriceINR = activeVariant?.compareAtPrice;
+  const isOutOfStock = activeVariant ? activeVariant.stockQuantity <= 0 : false;
+
+  const formatPrice = (amountINR: number) => {
+    if (currency.code === 'INR') {
+      return `₹${amountINR.toLocaleString('en-IN')}`;
+    }
+    const converted = Math.round(amountINR * currency.rateFromINR);
     return `${currency.symbol}${converted.toLocaleString()}`;
   };
 
   const handleAdd = () => {
-    onAddToCart(product, selectedSize);
+    const itemProduct: Product = {
+      ...product,
+      priceINR: currentPriceINR,
+      priceUSD: Math.round(currentPriceINR / 85),
+    };
+    onAddToCart(itemProduct, (selectedSize || 'M') as any);
     setAddedSuccess(true);
     setTimeout(() => setAddedSuccess(false), 1500);
   };
@@ -192,39 +357,147 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
           {/* Right Product Information (5 columns) */}
           <div className="lg:col-span-5 flex flex-col">
-            <span className="text-[10px] uppercase tracking-wide-luxury text-adwika-sand mb-2 font-mono">
-              {product.category} · ARCHIVE
-            </span>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-[10px] uppercase tracking-wide-luxury text-adwika-sand font-mono">
+                {product.category} · ARCHIVE
+              </span>
+              {activeVariant?.sku && (
+                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[#181615] border border-[#2e2a27] text-[#c9a87c]">
+                  SKU: {activeVariant.sku}
+                </span>
+              )}
+            </div>
+
             <h1 className="font-serif text-3xl sm:text-4xl uppercase tracking-wider text-white mb-3">
               {product.name}
             </h1>
-            <p className="font-serif text-2xl text-neutral-100 mb-6 font-light">
-              {formatPrice()}
-            </p>
-            <p className="text-xs text-neutral-400 leading-relaxed font-sans mb-8">
+
+            {/* Price with compareAtPrice & discount if available from API response */}
+            <div className="flex items-baseline gap-3 mb-3">
+              <span className="font-serif text-2xl sm:text-3xl text-neutral-100 font-light">
+                {formatPrice(currentPriceINR)}
+              </span>
+              {compareAtPriceINR && compareAtPriceINR > currentPriceINR && (
+                <>
+                  <span className="font-serif text-lg text-neutral-500 line-through">
+                    {formatPrice(compareAtPriceINR)}
+                  </span>
+                  <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/40">
+                    Save {Math.round(((compareAtPriceINR - currentPriceINR) / compareAtPriceINR) * 100)}%
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Live Inventory Status from API Variant Response */}
+            {activeVariant && (
+              <div className="flex items-center gap-2 mb-6">
+                {activeVariant.stockQuantity > 0 ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
+                    <span className="text-xs text-neutral-300 font-sans">
+                      {activeVariant.stockQuantity <= 5 ? (
+                        <span className="text-amber-300 font-medium">
+                          Only {activeVariant.stockQuantity} remaining in artisanal archive — order soon
+                        </span>
+                      ) : (
+                        `In Stock (${activeVariant.stockQuantity} units) · Handcrafted & Ready to Dispatch`
+                      )}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                    <span className="text-xs text-rose-400 font-medium">
+                      Sold Out · Bespoke Production on Request
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
+            <p className="text-xs text-neutral-400 leading-relaxed font-sans mb-7">
               {product.description}
             </p>
 
-            {/* Sizing */}
+            {/* Color Swatch Selection from API Variants */}
+            {availableColors.length > 0 && (
+              <div className="mb-6">
+                <div className="flex justify-between items-center text-xs mb-2.5">
+                  <span className="uppercase tracking-widest text-neutral-300 text-[10px]">
+                    Artisanal Hue:{' '}
+                    <span className="text-white font-medium uppercase">
+                      {activeColor?.name || 'Selected'}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {availableColors.map((col) => {
+                    const isSelected = (selectedColorId || activeColor?.id) === col.id;
+                    return (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() => handleColorChange(col.id)}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-[#c9a87c] bg-[#1f1c19] text-white shadow-md ring-1 ring-[#c9a87c]/50'
+                            : 'border-neutral-800 bg-[#121110] text-neutral-400 hover:border-neutral-600 hover:text-white'
+                        }`}
+                      >
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/50 shrink-0 shadow-inner"
+                          style={{ backgroundColor: col.code }}
+                        />
+                        <span className="text-xs font-sans tracking-wide">{col.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Sizing from API Variants */}
             <div className="mb-8">
               <div className="flex justify-between items-center text-xs mb-3">
-                <span className="uppercase tracking-widest text-neutral-300 text-[10px]">Select Size</span>
+                <span className="uppercase tracking-widest text-neutral-300 text-[10px]">
+                  Select Size {selectedSize && <span className="text-white font-semibold">({selectedSize})</span>}
+                </span>
                 <span className="text-neutral-500 underline text-[10px] cursor-pointer">Fit Consultation</span>
               </div>
-              <div className="flex gap-2.5">
-                {product.sizes.map((sz) => (
-                  <button
-                    key={sz}
-                    onClick={() => setSelectedSize(sz)}
-                    className={`flex-1 py-3 text-xs uppercase tracking-wider border transition-all ${
-                      selectedSize === sz
-                        ? 'border-white bg-white text-black font-semibold'
-                        : 'border-neutral-800 text-neutral-400 hover:border-neutral-600'
-                    }`}
-                  >
-                    {sz}
-                  </button>
-                ))}
+              <div className="flex gap-2.5 flex-wrap">
+                {availableSizes.map((sz) => {
+                  const matchingVariant = variants.find(
+                    (v) =>
+                      (selectedColorId
+                        ? v.productColorId === selectedColorId || v.productColor?.id === selectedColorId
+                        : true) &&
+                      (v.fitSize?.fitCode === sz || v.fitSize?.name === sz)
+                  );
+                  const isAvailableInColor = Boolean(matchingVariant);
+                  const isSzOut = matchingVariant ? matchingVariant.stockQuantity <= 0 : false;
+                  const isSelected = selectedSize === sz;
+
+                  return (
+                    <button
+                      key={sz}
+                      type="button"
+                      disabled={isSzOut}
+                      onClick={() => handleSizeChange(sz)}
+                      className={`min-w-[48px] flex-1 py-3 text-xs uppercase tracking-wider border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-white bg-white text-black font-semibold shadow-md'
+                          : isSzOut
+                          ? 'border-neutral-900 bg-neutral-900/40 text-neutral-600 line-through cursor-not-allowed'
+                          : !isAvailableInColor
+                          ? 'border-neutral-800/60 bg-neutral-900/20 text-neutral-500 hover:border-neutral-700 hover:text-neutral-300'
+                          : 'border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
+                      }`}
+                    >
+                      {sz}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -233,7 +506,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               variant="filled"
               size="lg"
               onClick={handleAdd}
-              disabled={addedSuccess}
+              disabled={addedSuccess || isOutOfStock}
               className="w-full py-4 mb-8 flex items-center justify-center gap-2"
             >
               {addedSuccess ? (
@@ -241,8 +514,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <Check size={16} />
                   <span>Reserved In Your Bag</span>
                 </>
+              ) : isOutOfStock ? (
+                <span>Sold Out</span>
               ) : (
-                <span>Add To Bag — {formatPrice()}</span>
+                <span>Add To Bag — {formatPrice(currentPriceINR)}</span>
               )}
             </Button>
 

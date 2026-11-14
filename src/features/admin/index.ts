@@ -36,4 +36,6 @@ export * from './schemas/productVariant.schema';
 export * from './services/productVariant.service';
 export * from './utils/colorHelper';
 export * from './components/common/AdminToast';
+export * from './components/common/ImageUploadField';
+export * from './services/upload.service';
 export * from './context/AdminThemeContext';

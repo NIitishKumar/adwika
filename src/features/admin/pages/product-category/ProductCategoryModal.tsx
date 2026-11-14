@@ -7,6 +7,7 @@ import {
   ProductCategoryFormData,
 } from '../../schemas/productCategory.schema';
 import { ProductCategory } from '../../types/productCategory.types';
+import { ImageUploadField } from '../../components/common/ImageUploadField';
 
 interface ProductCategoryModalProps {
   isOpen: boolean;
@@ -200,74 +201,40 @@ export const ProductCategoryModal: React.FC<ProductCategoryModalProps> = ({
                   />
                 </div>
 
-                {/* Image URL & Preview */}
+                {/* Image Upload (Cloudinary) */}
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-neutral-300 font-medium mb-1.5">
-                    Category Image URL
-                  </label>
-                  <div className="flex gap-3 items-center">
-                    <Field
-                      type="text"
-                      name="image_url"
-                      placeholder="https://example.com/images/ethnic.jpg"
-                      className="flex-1 bg-[#1e1c1a] border border-[#38332e] focus:border-[#c9a87c] rounded px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-500 outline-none transition-colors"
-                    />
-                    <div className="w-10 h-10 rounded border border-[#38322c] bg-[#1a1816] overflow-hidden shrink-0 flex items-center justify-center">
-                      {values.image_url ? (
-                        <img
-                          src={values.image_url}
-                          alt="Category preview"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <ImageIcon size={14} className="text-neutral-500" />
-                      )}
-                    </div>
-                  </div>
+                  <ImageUploadField
+                    name="image_url"
+                    label="Category Card Image"
+                    folder="categories"
+                    value={values.image_url}
+                    onChange={(url) => setFieldValue('image_url', url)}
+                    disabled={isSubmitting}
+                    helperText="Card thumbnail image displayed on category navigation."
+                  />
                   <ErrorMessage
                     name="image_url"
                     component="p"
                     className="text-xs text-rose-400 mt-1 font-sans"
                   />
-                  <p className="text-[11px] text-neutral-500 mt-1">
-                    Card thumbnail image displayed on category navigation.
-                  </p>
                 </div>
 
-                {/* Banner Image URL & Preview */}
+                {/* Banner Image Upload (Cloudinary) */}
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-neutral-300 font-medium mb-1.5">
-                    Banner Image URL
-                  </label>
-                  <Field
-                    type="text"
+                  <ImageUploadField
                     name="banner_image_url"
-                    placeholder="https://example.com/images/ethnic-banner.jpg"
-                    className="w-full bg-[#1e1c1a] border border-[#38332e] focus:border-[#c9a87c] rounded px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-500 outline-none transition-colors"
+                    label="Banner Image"
+                    folder="categories"
+                    value={values.banner_image_url}
+                    onChange={(url) => setFieldValue('banner_image_url', url)}
+                    disabled={isSubmitting}
+                    helperText="High-resolution hero header banner for the collection listing page."
                   />
-                  {values.banner_image_url && (
-                    <div className="mt-2 h-16 w-full rounded border border-[#38322c] bg-[#1a1816] overflow-hidden">
-                      <img
-                        src={values.banner_image_url}
-                        alt="Banner preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  )}
                   <ErrorMessage
                     name="banner_image_url"
                     component="p"
                     className="text-xs text-rose-400 mt-1 font-sans"
                   />
-                  <p className="text-[11px] text-neutral-500 mt-1">
-                    High-resolution hero header banner for the collection listing page.
-                  </p>
                 </div>
 
                 {/* Order and Active Status Row */}

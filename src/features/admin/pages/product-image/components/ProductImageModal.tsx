@@ -16,6 +16,7 @@ import {
 } from '../../../schemas/productImage.schema';
 import { ProductImage } from '../../../types/productImage.types';
 import { Product } from '../../../types/product.types';
+import { ImageUploadField } from '../../../components/common/ImageUploadField';
 
 interface ProductImageModalProps {
   isOpen: boolean;
@@ -151,42 +152,23 @@ export const ProductImageModal: React.FC<ProductImageModalProps> = ({
                 />
               </div>
 
-              {/* Image URL & Instant Live Preview */}
+              {/* Image Upload (Cloudinary) */}
               <div>
-                <label className="block text-xs uppercase tracking-wider text-neutral-300 font-medium mb-1.5">
-                  Image URL <span className="text-[#c9a87c]">*</span>
-                </label>
-                <Field
-                  type="text"
+                <ImageUploadField
                   name="image_url"
-                  placeholder="https://example.com/images/floral-kurta-front.jpg"
-                  autoFocus
-                  className="w-full bg-[#1e1c1a] border border-[#38332e] focus:border-[#c9a87c] rounded px-3.5 py-2.5 text-xs text-neutral-100 placeholder:text-neutral-500 outline-none transition-colors"
+                  label="Garment Photography Image"
+                  folder="products"
+                  value={values.image_url}
+                  onChange={(url) => setFieldValue('image_url', url)}
+                  required
+                  disabled={isSubmitting}
+                  helperText="Image is uploaded directly to Cloudinary and the returned URL is passed to the payload."
                 />
                 <ErrorMessage
                   name="image_url"
                   component="p"
                   className="text-xs text-rose-400 mt-1 font-sans"
                 />
-
-                {/* Live Preview Container */}
-                <div className="mt-2.5 h-36 w-full rounded border border-[#38322c] bg-[#1a1816] overflow-hidden flex items-center justify-center relative">
-                  {values.image_url ? (
-                    <img
-                      src={values.image_url}
-                      alt="Product preview"
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="text-center text-neutral-500">
-                      <ImageIcon size={24} className="mx-auto mb-1 opacity-60" />
-                      <p className="text-[11px] font-mono">Image preview appears here</p>
-                    </div>
-                  )}
-                </div>
               </div>
 
               {/* Alt Text */}

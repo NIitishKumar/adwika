@@ -18,6 +18,7 @@ import { Product } from '../../../types/product.types';
 import { ProductCategory } from '../../../types/productCategory.types';
 import { ProductSubCategory } from '../../../types/productSubCategory.types';
 import { FitSize } from '../../../types/fitSize.types';
+import { ImageUploadField } from '../../../components/common/ImageUploadField';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -220,36 +221,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Garment Image URL */}
+                  {/* Garment Image Upload (Cloudinary) */}
                   <div>
-                    <label className="block text-xs uppercase tracking-wider text-neutral-300 font-medium mb-1.5">
-                      Garment Image URL (imageUrl)
-                    </label>
-                    <div className="flex gap-3 items-center">
-                      <div className="relative flex-1">
-                        <Field
-                          type="url"
-                          name="imageUrl"
-                          placeholder="https://images.unsplash.com/... or uploaded garment image URL"
-                          className="w-full bg-[#1e1c1a] border border-[#38332e] focus:border-[#c9a87c] rounded pl-9 pr-3.5 py-2.5 text-xs font-mono text-neutral-100 placeholder:text-neutral-500 outline-none transition-colors"
-                        />
-                        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
-                          <ImageIcon size={14} className="text-[#c9a87c]" />
-                        </div>
-                      </div>
-                      {values.imageUrl && (
-                        <div className="w-10 h-10 rounded border border-[#38332e] overflow-hidden bg-[#141211] shrink-0">
-                          <img
-                            src={values.imageUrl}
-                            alt="Preview"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
+                    <ImageUploadField
+                      name="imageUrl"
+                      label="Garment Photography Image"
+                      folder="products"
+                      value={values.imageUrl}
+                      onChange={(url) => setFieldValue('imageUrl', url)}
+                      disabled={isSubmitting}
+                      helperText="Directly uploaded to Cloudinary; secure URL will be passed in product payload."
+                    />
                     <ErrorMessage
                       name="imageUrl"
                       component="p"

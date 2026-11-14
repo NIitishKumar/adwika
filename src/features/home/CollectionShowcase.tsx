@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ProductCard } from '@/features/products';
 import { PRODUCTS } from '@/data/products';
 import { Product, CurrencyConfig, CategoryType } from '@/types';
-import { Filter, Sparkles } from 'lucide-react';
+import { Filter } from 'lucide-react';
+import { productService } from '@/features/admin/services/product.service';
+import { useCategoryStore } from '@/stores';
 
 interface CollectionShowcaseProps {
   selectedCategory: CategoryType;
@@ -17,7 +19,7 @@ interface CategoryTab {
   badge?: string;
 }
 
-const CATEGORY_TABS: CategoryTab[] = [
+const DEFAULT_CATEGORY_TABS: CategoryTab[] = [
   { label: 'ALL', value: 'ALL' },
   { label: 'KURTIS', value: 'KURTIS' },
   { label: 'SUITS', value: 'SUITS' },
@@ -33,11 +35,68 @@ export const CollectionShowcase: React.FC<CollectionShowcaseProps> = ({
   onQuickView,
 }) => {
   const [filterMode, setFilterMode] = useState<CategoryType>(selectedCategory);
+  const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+  const storeCategories = useCategoryStore((state) => state.categories);
 
-  const filteredProducts = PRODUCTS.filter((p) => {
-    if (filterMode === 'ALL') return true;
-    return p.category === filterMode;
-  });
+  const categoryTabs = useMemo<CategoryTab[]>(() => {
+    if (!storeCategories || storeCategories.length === 0) {
+      return DEFAULT_CATEGORY_TABS;
+    }
+    return [
+      { label: 'ALL', value: 'ALL' },
+      ...storeCategories.map((c) => ({
+        label: c.title.toUpperCase(),
+        value: (c.id || c.categoryId?.toUpperCase() || c.title.toUpperCase()) as CategoryType,
+        badge: c.title.toUpperCase().includes('SAREE') ? 'COMING SOON' : undefined,
+      })),
+    ];
+  }, [storeCategories]);
+
+  useEffect(() => {
+    let mounted = true;
+    productService
+      .getAll({ status: 'ACTIVE' })
+      .then((res) => {
+        if (mounted && res.data && res.data.length > 0) {
+          const mapped: Product[] = res.data.map((p) => ({
+            id: p.slug || p.id,
+            name: p.name,
+            subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
+            category: (p.category?.title?.toUpperCase() || 'KURTIS') as CategoryType,
+            priceINR: p.basePrice || 0,
+            priceUSD: Math.round((p.basePrice || 0) / 85),
+            image: p.imageUrl || '/images/default.jpg',
+            description: p.description || p.shortDescription || '',
+            craftDetails: [`Fit: ${p.fit}`],
+            fabric: p.fit || 'Mulberry Silk & Chanderi',
+            sizes: ['XS', 'S', 'M', 'L', 'XL'],
+            categoryId: p.categoryId || p.category?.id,
+            subCategoryId: p.subCategoryId || p.subCategory?.id,
+          }));
+          setLiveProducts(mapped);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const sourceProducts = liveProducts.length > 0 ? liveProducts : PRODUCTS;
+
+  const filteredProducts = useMemo(() => {
+    if (filterMode === 'ALL') return sourceProducts;
+    return sourceProducts.filter((p) => {
+      const pCatId = (p as any).categoryId || (p as any).category?.id;
+      const pCatTitle = p.category?.toString().toUpperCase();
+      const target = filterMode.toString().toUpperCase();
+
+      if (pCatId && pCatId === filterMode) return true;
+      if (pCatTitle && (pCatTitle === target || pCatTitle.includes(target) || target.includes(pCatTitle))) return true;
+      return false;
+    });
+  }, [filterMode, sourceProducts]);
 
   return (
     <section id="collection-showcase" className="bg-[#0b0b0d] text-neutral-100 py-20 px-6 md:px-12 border-t border-neutral-900">
@@ -56,13 +115,13 @@ export const CollectionShowcase: React.FC<CollectionShowcaseProps> = ({
             </h2>
           </div>
 
-          {/* Filter Pills with KURTIS, SUITS, CO-ORDS, SHIRTS, SAREES (COMING SOON) */}
+          {/* Dynamic Filter Pills */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] tracking-wider uppercase text-neutral-500 mr-2">
               <Filter size={12} />
               <span>Category:</span>
             </span>
-            {CATEGORY_TABS.map((tab) => {
+            {categoryTabs.map((tab) => {
               const isActive = filterMode === tab.value;
               return (
                 <button
@@ -95,44 +154,15 @@ export const CollectionShowcase: React.FC<CollectionShowcaseProps> = ({
           </div>
         </div>
 
-        {/* Coming Soon Announcement Banner for Sarees */}
-        {filterMode === 'SAREES' && (
-          <div className="mb-10 p-6 bg-gradient-to-r from-neutral-900 via-[#18181f] to-neutral-900 border border-adwika-sand/30 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Sparkles className="text-adwika-sand shrink-0" size={20} />
-              <div>
-                <h4 className="font-serif text-base text-neutral-100 tracking-wide">
-                  The Saree Atelier Capsule — Arriving Winter 2026
-                </h4>
-                <p className="text-xs text-neutral-400 font-sans mt-0.5">
-                  Hand-painted Kalamkaris, Banarasi katan silks, and whisper-light Chanderis woven on antique pit looms. Preview the inaugural archives below.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => alert('You have been added to the Priority Saree Dispatch list.')}
-              className="px-5 py-2 text-[10px] tracking-widest uppercase bg-adwika-sand text-neutral-950 font-medium hover:bg-white transition-colors shrink-0"
-            >
-              Request VIP Dispatch
-            </button>
-          </div>
-        )}
-
-        {/* Product Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+        {/* Garment Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {filteredProducts.map((product) => (
-            <div key={product.id} className="relative">
-              <ProductCard
-                product={product}
-                currency={currency}
-                onQuickView={onQuickView}
-              />
-              {product.comingSoon && (
-                <div className="absolute top-3 right-3 bg-amber-900/90 text-amber-200 border border-amber-600/40 px-2.5 py-1 text-[9px] tracking-widest uppercase font-mono backdrop-blur-sm pointer-events-none">
-                  COMING SOON
-                </div>
-              )}
-            </div>
+            <ProductCard
+              key={product.id}
+              product={product}
+              currency={currency}
+              onQuickView={onQuickView}
+            />
           ))}
         </div>
       </div>

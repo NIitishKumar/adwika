@@ -1,13 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ShoppingBag, User, Search, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCategoryStore } from '@/stores';
+
 interface NavbarProps {
   onOpenAccountModal: () => void;
   onOpenSearchModal: () => void;
   onOpenCart: () => void;
   cartCount: number;
 }
+
+const DEFAULT_NAV_LINKS: { label: string; path: string; badge?: string }[] = [
+  { label: 'KURTIS', path: '/kurtis' },
+  { label: 'SUITS', path: '/suits' },
+  { label: 'CO-ORDS', path: '/coords' },
+  { label: 'SHIRTS', path: '/shirts' },
+  { label: 'SAREES', path: '/sarees', badge: 'SOON' },
+  { label: 'JOURNAL', path: '/journal' },
+  { label: 'ABOUT', path: '/about' },
+];
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenAccountModal,
@@ -17,8 +29,38 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const categories = useCategoryStore((state) => state.categories);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const navLinks = useMemo(() => {
+    if (!categories || categories.length === 0) {
+      return DEFAULT_NAV_LINKS;
+    }
+
+    const catLinks = categories.map((c) => {
+      const rawSlug = (c.categoryId || c.title).toLowerCase().replace(/[\s_]+/g, '-');
+      let path = `/category/${rawSlug}`;
+      if (rawSlug === 'kurtis' || rawSlug === 'kurti') path = '/kurtis';
+      else if (rawSlug === 'suits' || rawSlug === 'suit') path = '/suits';
+      else if (rawSlug === 'co-ords' || rawSlug === 'coords') path = '/coords';
+      else if (rawSlug === 'shirts' || rawSlug === 'shirt') path = '/shirts';
+      else if (rawSlug === 'sarees' || rawSlug === 'saree') path = '/sarees';
+
+      const upper = c.title ? c.title.toUpperCase() : 'COLLECTION';
+      return {
+        label: upper,
+        path,
+        badge: upper.includes('SAREE') ? 'SOON' : undefined,
+      };
+    });
+
+    return [
+      ...catLinks,
+      { label: 'JOURNAL', path: '/journal' },
+      { label: 'ABOUT', path: '/about' },
+    ];
+  }, [categories]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,16 +69,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const navLinks: { label: string; path: string; badge?: string }[] = [
-    { label: 'KURTIS', path: '/kurtis' },
-    { label: 'SUITS', path: '/suits' },
-    { label: 'CO-ORDS', path: '/coords' },
-    { label: 'SHIRTS', path: '/shirts' },
-    { label: 'SAREES', path: '/sarees', badge: 'SOON' },
-    { label: 'JOURNAL', path: '/journal' },
-    { label: 'ABOUT', path: '/about' },
-  ];
 
   const handleLinkClick = (path: string) => {
     navigate(path);

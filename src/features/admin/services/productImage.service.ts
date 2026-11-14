@@ -3,82 +3,14 @@ import {
   CreateProductImageDto,
   UpdateProductImageDto,
 } from '../types/productImage.types';
-import { API_BASE_URL, authFetch } from '@/config/api.config';
+import {
+  API_BASE_URL,
+  authFetch,
+  extractApiDataList,
+  extractApiDataObject,
+} from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_images_v1';
-
-const INITIAL_FALLBACK_IMAGES: ProductImage[] = [
-  {
-    id: '6ae635370524444ba6985f47',
-    uniqueId: '6ae635370524444ba6985f47',
-    imageId: '6ae635370524444ba6985f47',
-    productId: '6ae63157baaed242a3252445',
-    product: {
-      id: '6ae63157baaed242a3252445',
-      uniqueId: '6ae63157baaed242a3252445',
-      name: 'Classic Oxford Cotton Shirt Ragular Fit',
-      slug: 'classic-oxford-cotton-shirt-ragular-fit',
-    },
-    imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=800&q=80',
-    altText: 'Front view of classic oxford cotton shirt in tailored cut',
-    displayOrder: 1,
-    isPrimary: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'img-oxford-collar-detail',
-    uniqueId: 'img-oxford-collar-detail',
-    imageId: 'img-oxford-collar-detail',
-    productId: '6ae63157baaed242a3252445',
-    product: {
-      id: '6ae63157baaed242a3252445',
-      uniqueId: '6ae63157baaed242a3252445',
-      name: 'Classic Oxford Cotton Shirt Ragular Fit',
-      slug: 'classic-oxford-cotton-shirt-ragular-fit',
-    },
-    imageUrl: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&q=80',
-    altText: 'Close up collar stitching and mother-of-pearl buttons',
-    displayOrder: 2,
-    isPrimary: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'img-anarkali-hero',
-    uniqueId: 'img-anarkali-hero',
-    imageId: 'img-anarkali-hero',
-    productId: 'prod-royal-anarkali',
-    product: {
-      id: 'prod-royal-anarkali',
-      name: 'Gulab Chanderi Hand-Embroidered Anarkali Set',
-      slug: 'gulab-chanderi-hand-embroidered-anarkali-set',
-    },
-    imageUrl: 'https://images.unsplash.com/photo-1583391733975-ae9847156947?auto=format&fit=crop&w=800&q=80',
-    altText: 'Royal festive Gulab Chanderi Anarkali with gold organza dupatta',
-    displayOrder: 1,
-    isPrimary: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'img-coord-hero',
-    uniqueId: 'img-coord-hero',
-    imageId: 'img-coord-hero',
-    productId: 'prod-noor-coord',
-    product: {
-      id: 'prod-noor-coord',
-      name: 'Noor Artisanal Lounge Co-ord Set',
-      slug: 'noor-artisanal-lounge-coord-set',
-    },
-    imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80',
-    altText: 'Noor relaxed artisanal lounge coordinated two-piece set',
-    displayOrder: 1,
-    isPrimary: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 function normalizeImage(raw: any): ProductImage {
   const id = raw.id || raw.uniqueId || raw.imageId || raw._id || `img-${Date.now()}`;
@@ -115,12 +47,11 @@ function getStoredImages(): ProductImage[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_FALLBACK_IMAGES));
-      return INITIAL_FALLBACK_IMAGES;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_FALLBACK_IMAGES;
+    return [];
   }
 }
 
@@ -151,8 +82,8 @@ export const productImageService = {
 
       if (response.ok) {
         const json = await response.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
-        if (Array.isArray(rawList)) {
+        const rawList = extractApiDataList(json);
+        if (Array.isArray(rawList) && (rawList.length > 0 || json?.success)) {
           const list = rawList.map(normalizeImage);
           saveStoredImages(list);
           const filtered = productId
@@ -209,7 +140,7 @@ export const productImageService = {
 
       if (response.ok) {
         const json = await response.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
+        const rawList = extractApiDataList(json);
         if (Array.isArray(rawList)) {
           const list = rawList.map(normalizeImage);
           // Update cache
@@ -253,7 +184,7 @@ export const productImageService = {
 
       if (allRes.ok) {
         const json = await allRes.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
+        const rawList = extractApiDataList(json);
         if (Array.isArray(rawList)) {
           const list = rawList.map(normalizeImage);
           saveStoredImages(list);

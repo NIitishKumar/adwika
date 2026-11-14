@@ -22,6 +22,7 @@ export function useProduct() {
   const [subCategories, setSubCategories] = useState<ProductSubCategory[]>([]);
   const [fitSizes, setFitSizes] = useState<FitSize[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingSubCategories, setIsLoadingSubCategories] = useState<boolean>(false);
   const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
 
   // Filter States
@@ -63,17 +64,16 @@ export function useProduct() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [prodRes, catRes, subRes, fitRes] = await Promise.all([
+      const [prodRes, catRes, fitRes] = await Promise.all([
         productService.getAll(),
         productCategoryService.getAll(),
-        productSubCategoryService.getAll(),
         fitSizeService.getAll(),
       ]);
 
       setProducts(prodRes.data);
       setIsLiveApi(prodRes.fromApi);
       setCategories(catRes.data);
-      setSubCategories(subRes.data);
+      setSubCategories([]); // Do not load all subcategories upfront
       setFitSizes(fitRes.data);
     } catch (err: any) {
       showToast('error', err?.message || 'Failed to load products from server', 'Load Error');
@@ -362,11 +362,43 @@ export function useProduct() {
   const activeCount = products.filter((p) => p.status === 'ACTIVE').length;
   const draftCount = products.filter((p) => p.status === 'DRAFT' || p.status === 'INACTIVE').length;
 
+  const handleCategoryFilterChange = async (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setSelectedSubCategory('ALL');
+
+    if (!categoryId || categoryId === 'ALL') {
+      setSubCategories([]);
+      return;
+    }
+
+    setIsLoadingSubCategories(true);
+    try {
+      const res = await productSubCategoryService.getByCategoryId(categoryId);
+      setSubCategories(res.data);
+    } catch (err) {
+      console.error('Failed to load sub-categories for category', categoryId, err);
+      setSubCategories([]);
+    } finally {
+      setIsLoadingSubCategories(false);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setGenderFilter('ALL');
+    setSelectedCategory('ALL');
+    setSelectedSubCategory('ALL');
+    setSubCategories([]);
+  };
+
   return {
     products,
     filteredProducts,
     categories,
     subCategories,
+    isLoadingSubCategories,
+    handleCategoryFilterChange,
     fitSizes,
     categoryMap,
     subCategoryMap,
@@ -411,5 +443,6 @@ export function useProduct() {
     handleFormSubmit,
     handleDeleteConfirm,
     handleToggleStatus,
+    handleResetFilters,
   };
 }

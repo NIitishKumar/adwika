@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Modal } from '@/components/ui';
 import { PRODUCTS } from '@/data/products';
 import { Product, CurrencyConfig } from '@/types';
 import { Search, ArrowRight } from 'lucide-react';
+import { productService } from '@/features/admin/services/product.service';
 
 interface SearchDrawerProps {
   isOpen: boolean;
@@ -18,18 +19,50 @@ export const SearchDrawer: React.FC<SearchDrawerProps> = ({
   onSelectProduct,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let mounted = true;
+    productService
+      .getAll({ search: searchTerm.trim() || undefined, status: 'ACTIVE' })
+      .then((res) => {
+        if (mounted && res.data && res.data.length > 0) {
+          const mapped: Product[] = res.data.map((p) => ({
+            id: p.slug || p.id,
+            name: p.name,
+            subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
+            category: (p.category?.title?.toUpperCase() || 'KURTIS') as any,
+            priceINR: p.basePrice || 0,
+            priceUSD: Math.round((p.basePrice || 0) / 85),
+            image: p.imageUrl || '/images/default.jpg',
+            description: p.description || p.shortDescription || '',
+            craftDetails: [`Fit: ${p.fit}`],
+            fabric: p.fit || 'Mulberry Silk',
+            sizes: ['XS', 'S', 'M', 'L', 'XL'],
+          }));
+          setLiveProducts(mapped);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, searchTerm]);
+
+  const sourceProducts = liveProducts.length > 0 ? liveProducts : PRODUCTS;
 
   const filteredProducts = useMemo(() => {
-    if (!searchTerm.trim()) return PRODUCTS.slice(0, 4);
+    if (!searchTerm.trim()) return sourceProducts.slice(0, 4);
     const q = searchTerm.toLowerCase();
-    return PRODUCTS.filter(
+    return sourceProducts.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
+        p.category?.toString().toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q) ||
-        p.fabric.toLowerCase().includes(q)
+        (p.fabric && p.fabric.toLowerCase().includes(q))
     );
-  }, [searchTerm]);
+  }, [searchTerm, sourceProducts]);
 
   const formatPrice = (p: Product) => {
     if (currency.code === 'INR') {

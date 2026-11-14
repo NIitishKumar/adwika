@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PRODUCTS } from '@/data/products';
 import { CurrencyConfig, CartItem, Product } from '@/types';
 import { Button } from '@/components/ui';
 import { ProductCard } from '../ProductCard';
-import { Heart, Sparkles, ShieldCheck, ChevronDown, Check, ArrowLeft } from 'lucide-react';
+import { Heart, Sparkles, ShieldCheck, ChevronDown, Check, ArrowLeft, Loader2 } from 'lucide-react';
+import { productService } from '@/features/admin/services/product.service';
+import { productImageService } from '@/features/admin/services/productImage.service';
 
 interface ProductDetailPageProps {
   currency: CurrencyConfig;
@@ -20,11 +22,101 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const product = PRODUCTS.find((p) => p.id === id) || PRODUCTS[0];
+  const [product, setProduct] = useState<Product>(() => {
+    return PRODUCTS.find((p) => p.id === id) || PRODUCTS[0];
+  });
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [activeImage, setActiveImage] = useState<string>('');
+  const [liveRelated, setLiveRelated] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedSize, setSelectedSize] = useState<CartItem['size']>('M');
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>('craft');
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchProduct = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      try {
+        const res = await productService.getById(id);
+        if (mounted && res.data) {
+          const p = res.data;
+          let images: string[] = p.imageUrl ? [p.imageUrl] : [];
+
+          try {
+            const galleryRes = await productImageService.getByProductId(p.id || id);
+            if (galleryRes.data && galleryRes.data.length > 0) {
+              const apiUrls = galleryRes.data.map((img) => img.imageUrl).filter(Boolean);
+              if (apiUrls.length > 0) {
+                images = Array.from(new Set([...images, ...apiUrls]));
+              }
+            }
+          } catch {
+            // Optional gallery fetch
+          }
+
+          const primaryImg = images[0] || p.imageUrl || '/images/default-garment.jpg';
+          setGalleryImages(images);
+          setActiveImage(primaryImg);
+
+          setProduct({
+            id: p.slug || p.id,
+            name: p.name,
+            subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
+            category: (p.category?.title?.toUpperCase() || 'KURTIS') as any,
+            priceINR: p.basePrice || 0,
+            priceUSD: Math.round((p.basePrice || 0) / 85),
+            image: primaryImg,
+            secondaryImage: images[1] || primaryImg,
+            description: p.description || p.shortDescription || '',
+            craftDetails: [
+              `Fit: ${p.fit}`,
+              p.subCategory?.name ? `Collection: ${p.subCategory.name}` : 'Handcrafted Luxury',
+              p.category?.title ? `Master Category: ${p.category.title}` : 'Pure Mulberry Silk',
+            ],
+            fabric: p.fit || 'Mulberry Silk & Chanderi',
+            sizes: ['XS', 'S', 'M', 'L', 'XL'],
+          });
+        }
+
+        try {
+          const relatedRes = await productService.getAll({ status: 'ACTIVE' });
+          if (mounted && relatedRes.data && relatedRes.data.length > 0) {
+            const mappedRelated: Product[] = relatedRes.data
+              .filter((item) => (item.slug || item.id) !== id && item.id !== id)
+              .slice(0, 3)
+              .map((rp) => ({
+                id: rp.slug || rp.id,
+                name: rp.name,
+                subtitle: rp.shortDescription || rp.category?.title || 'Heirloom Piece',
+                category: (rp.category?.title?.toUpperCase() || 'KURTIS') as any,
+                priceINR: rp.basePrice || 0,
+                priceUSD: Math.round((rp.basePrice || 0) / 85),
+                image: rp.imageUrl || '/images/default.jpg',
+                description: rp.description || rp.shortDescription || '',
+                craftDetails: [`Fit: ${rp.fit}`],
+                fabric: rp.fit || 'Mulberry Silk',
+                sizes: ['XS', 'S', 'M', 'L', 'XL'],
+              }));
+            setLiveRelated(mappedRelated);
+          }
+        } catch {
+          // Ignore related products error
+        }
+      } catch {
+        // Fallback to local mock products
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    fetchProduct();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
 
   const formatPrice = () => {
     if (currency.code === 'INR') {
@@ -40,7 +132,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     setTimeout(() => setAddedSuccess(false), 1500);
   };
 
-  const related = PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3);
+  const related = liveRelated.length > 0 ? liveRelated : PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3);
 
   return (
     <div className="pt-24 min-h-screen bg-[#080809] text-neutral-100">
@@ -57,10 +149,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         {/* Product Main Showcase */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
           {/* Left Gallery (7 columns) */}
-          <div className="lg:col-span-7 flex flex-col gap-6">
+          <div className="lg:col-span-7 flex flex-col gap-4">
             <div className="relative aspect-[3/4] bg-neutral-900 overflow-hidden border border-neutral-800">
               <img
-                src={product.image}
+                src={activeImage || product.image}
                 alt={product.name}
                 className="w-full h-full object-cover object-top"
               />
@@ -72,6 +164,30 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <Heart size={20} fill={isWishlisted ? '#f43f5e' : 'none'} className={isWishlisted ? 'text-red-500' : ''} />
               </button>
             </div>
+
+            {/* Product Gallery Thumbnails */}
+            {galleryImages.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {galleryImages.map((imgUrl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveImage(imgUrl)}
+                    className={`relative w-20 h-24 rounded border overflow-hidden shrink-0 transition-all cursor-pointer ${
+                      (activeImage || product.image) === imgUrl
+                        ? 'border-[#c9a87c] ring-1 ring-[#c9a87c]'
+                        : 'border-[#332f2b] opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`${product.name} view ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right Product Information (5 columns) */}

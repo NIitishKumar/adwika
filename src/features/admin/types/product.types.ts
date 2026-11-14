@@ -9,7 +9,7 @@ export interface ProductParentSubCategory {
 }
 
 export type ProductGender = 'MEN' | 'WOMEN' | 'UNISEX';
-export type ProductStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT';
+export type ProductStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT' | 'ARCHIVED';
 
 export interface Product {
   id: string;
@@ -41,19 +41,34 @@ export interface CreateProductDto {
   slug?: string;
   categoryId: string;
   subCategoryId?: string;
+  shortDescription?: string;
   short_description?: string;
   description?: string;
   gender: ProductGender;
   fit: string;
   imageUrl?: string;
   image_url?: string;
-  base_price: number;
+  basePrice?: number;
+  base_price?: number;
   status: ProductStatus;
+  metaTitle?: string;
   meta_title?: string;
+  metaDescription?: string;
   meta_description?: string;
 }
 
 export type UpdateProductDto = Partial<CreateProductDto>;
+
+export interface ProductQueryParams {
+  categoryId?: string;
+  subCategoryId?: string;
+  gender?: string;
+  fit?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  search?: string;
+  status?: string;
+}
 
 export interface ProductApiResponse<T = Product> {
   message: string;

@@ -9,6 +9,7 @@ import {
   Scissors,
   IndianRupee,
   Image as ImageIcon,
+  RotateCcw,
 } from 'lucide-react';
 import { Product, ProductStatus } from '../../../types/product.types';
 import { ProductCategory } from '../../../types/productCategory.types';
@@ -23,6 +24,7 @@ interface ProductTableProps {
   onDelete: (product: Product) => void;
   onToggleStatus: (id: string, currentStatus: ProductStatus) => Promise<void>;
   isLoading?: boolean;
+  onResetFilters?: () => void;
 }
 
 export const ProductTable: React.FC<ProductTableProps> = ({
@@ -34,6 +36,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   onDelete,
   onToggleStatus,
   isLoading = false,
+  onResetFilters,
 }) => {
   if (isLoading) {
     return (
@@ -52,8 +55,18 @@ export const ProductTable: React.FC<ProductTableProps> = ({
         </div>
         <h4 className="font-serif text-base text-neutral-200">No Garments Found</h4>
         <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
-          No products match your selected filters. Create a new garment or reset search terms.
+          No products match your selected filters. Create a new garment or reset active filters.
         </p>
+        {onResetFilters && (
+          <button
+            type="button"
+            onClick={onResetFilters}
+            className="mt-4 px-3.5 py-1.5 text-xs font-mono uppercase tracking-wider bg-[#29221b] hover:bg-[#3d3024] text-[#c9a87c] border border-[#4d3a2b] rounded transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <RotateCcw size={12} />
+            <span>Reset Active Filters</span>
+          </button>
+        )}
       </div>
     );
   }
@@ -94,6 +107,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
               ACTIVE: 'bg-emerald-950/70 border-emerald-700/60 text-emerald-300',
               DRAFT: 'bg-amber-950/70 border-amber-700/60 text-amber-300',
               INACTIVE: 'bg-neutral-900 border-neutral-700 text-neutral-400',
+              ARCHIVED: 'bg-zinc-900 border-zinc-700 text-zinc-400',
             };
 
             return (

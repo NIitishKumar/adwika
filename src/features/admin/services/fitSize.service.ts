@@ -1,50 +1,12 @@
 import { FitSize, CreateFitSizeDto, UpdateFitSizeDto, FitSizeApiResponse } from '../types/fitSize.types';
-import { API_BASE_URL, authFetch } from '@/config/api.config';
+import {
+  API_BASE_URL,
+  authFetch,
+  extractApiDataList,
+  extractApiDataObject,
+} from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_fit_sizes_v2';
-
-const INITIAL_FALLBACK_FITS: FitSize[] = [
-  {
-    id: '6ae6223e09ce4684c74844cd',
-    uniqueId: '6ae6223e09ce4684c74844cd',
-    name: 'Slim Fit2',
-    fitCode: 'SLIM2',
-    displayOrder: 1,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fit-regular',
-    uniqueId: 'fit-regular',
-    name: 'Regular Fit',
-    fitCode: 'REG',
-    displayOrder: 2,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fit-relaxed',
-    uniqueId: 'fit-relaxed',
-    name: 'Relaxed Fit',
-    fitCode: 'RLX',
-    displayOrder: 3,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'fit-oversized',
-    uniqueId: 'fit-oversized',
-    name: 'Oversized Fit',
-    fitCode: 'OVS',
-    displayOrder: 4,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 function normalizeFitSize(raw: any): FitSize {
   const id = raw.id || raw.uniqueId || raw._id || `fit-${Date.now()}`;
@@ -64,12 +26,11 @@ function getStoredFitSizes(): FitSize[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_FALLBACK_FITS));
-      return INITIAL_FALLBACK_FITS;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_FALLBACK_FITS;
+    return [];
   }
 }
 
@@ -83,12 +44,14 @@ function saveStoredFitSizes(items: FitSize[]): void {
 
 export const fitSizeService = {
   /**
+   * 4.1 Get Fit Sizes
    * GET /api/v1/fit-sizes
-   * Fetches all fit sizes from the backend API
+   * Query Params: isActive=true
    */
-  async getAll(): Promise<{ data: FitSize[]; fromApi: boolean }> {
+  async getAll(params?: { isActive?: boolean }): Promise<{ data: FitSize[]; fromApi: boolean }> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/fit-sizes`, {
+      const qs = params?.isActive !== undefined ? `?isActive=${params.isActive}` : '';
+      const response = await authFetch(`${API_BASE_URL}/fit-sizes${qs}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -97,12 +60,10 @@ export const fitSizeService = {
 
       if (response.ok) {
         const json = await response.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
-        if (Array.isArray(rawList)) {
-          const list = rawList.map(normalizeFitSize);
-          saveStoredFitSizes(list);
-          return { data: list, fromApi: true };
-        }
+        const rawList = extractApiDataList(json);
+        const list = rawList.map(normalizeFitSize);
+        saveStoredFitSizes(list);
+        return { data: list, fromApi: true };
       }
     } catch {
       // Backend starting or offline; fallback to cached items

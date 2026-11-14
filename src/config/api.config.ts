@@ -99,3 +99,44 @@ export async function authFetch(input: RequestInfo | URL, init?: RequestInit): P
 
   return response;
 }
+
+/**
+ * Safely extracts an array of items from various backend response shapes:
+ * 1. Array directly: [...]
+ * 2. Nested pagination response: { data: { data: [...] } } (NestJS / Express paginated response)
+ * 3. Standard response: { data: [...] }
+ * 4. Named items: { data: { items: [...] } } or { data: { products: [...] } }
+ * 5. Root items: { items: [...] } or { results: [...] }
+ */
+export function extractApiDataList<T = any>(json: any): T[] {
+  if (!json) return [];
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(json?.data?.data?.data)) return json.data.data.data;
+  if (Array.isArray(json?.data?.data)) return json.data.data;
+  if (Array.isArray(json?.data)) return json.data;
+  if (Array.isArray(json?.data?.items)) return json.data.items;
+  if (Array.isArray(json?.data?.products)) return json.data.products;
+  if (Array.isArray(json?.data?.categories)) return json.data.categories;
+  if (Array.isArray(json?.data?.results)) return json.data.results;
+  if (Array.isArray(json?.items)) return json.items;
+  if (Array.isArray(json?.results)) return json.results;
+  return [];
+}
+
+/**
+ * Safely extracts a single entity object from various response shapes:
+ * 1. Nested: { data: { data: { ... } } }
+ * 2. Standard: { data: { ... } }
+ * 3. Root: { ... }
+ */
+export function extractApiDataObject<T = any>(json: any): T | null {
+  if (!json) return null;
+  if (json?.data?.data && typeof json.data.data === 'object' && !Array.isArray(json.data.data)) {
+    return json.data.data;
+  }
+  if (json?.data && typeof json.data === 'object' && !Array.isArray(json.data)) {
+    return json.data;
+  }
+  return json;
+}
+

@@ -198,6 +198,15 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
+            path="/category/:slug"
+            element={
+              <CategoryPage
+                currency={activeCurrency}
+                onQuickView={(p) => setQuickViewProduct(p)}
+              />
+            }
+          />
+          <Route
             path="/craft"
             element={
               <CraftPage

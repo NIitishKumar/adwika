@@ -19,6 +19,7 @@ import { ProductCategory } from '../../../types/productCategory.types';
 import { ProductSubCategory } from '../../../types/productSubCategory.types';
 import { FitSize } from '../../../types/fitSize.types';
 import { ImageUploadField } from '../../../components/common/ImageUploadField';
+import { productSubCategoryService } from '../../../services/productSubCategory.service';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -41,10 +42,39 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 }) => {
   const [serverError, setServerError] = useState<string | null>(null);
   const [showSeo, setShowSeo] = useState<boolean>(false);
+  const [liveSubCategories, setLiveSubCategories] = useState<ProductSubCategory[]>([]);
+  const [isLoadingSubs, setIsLoadingSubs] = useState<boolean>(false);
+
+  const fetchSubCategories = async (catId: string) => {
+    if (!catId) {
+      setLiveSubCategories([]);
+      return;
+    }
+    setIsLoadingSubs(true);
+    try {
+      const res = await productSubCategoryService.getByCategoryId(catId);
+      setLiveSubCategories(res.data);
+    } catch {
+      setLiveSubCategories([]);
+    } finally {
+      setIsLoadingSubs(false);
+    }
+  };
 
   useEffect(() => {
     setServerError(null);
   }, [isOpen, initialData]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const initialCatId = initialData?.categoryId || categories[0]?.id || '';
+      if (initialCatId) {
+        fetchSubCategories(initialCatId);
+      } else {
+        setLiveSubCategories([]);
+      }
+    }
+  }, [isOpen, initialData?.categoryId, categories]);
 
   if (!isOpen) return null;
 
@@ -136,11 +166,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             enableReinitialize
           >
             {({ isSubmitting, values, setFieldValue, touched }) => {
-              // Filter sub-categories based on selected category
-              const availableSubCategories = subCategories.filter(
-                (s) => !values.categoryId || s.categoryId === values.categoryId
-              );
-
               return (
                 <Form className="p-6 space-y-5">
                   {serverError && (
@@ -251,8 +276,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                           as="select"
                           name="categoryId"
                           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                            setFieldValue('categoryId', e.target.value);
+                            const newCatId = e.target.value;
+                            setFieldValue('categoryId', newCatId);
                             setFieldValue('subCategoryId', '');
+                            fetchSubCategories(newCatId);
                           }}
                           className="w-full bg-[#1e1c1a] border border-[#38332e] focus:border-[#c9a87c] rounded px-3.5 py-2.5 text-sm text-neutral-100 outline-none transition-colors cursor-pointer appearance-none"
                         >
@@ -276,36 +303,54 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                       />
                     </div>
 
-                    {/* Sub-Category Select */}
-                    <div>
-                      <label className="block text-xs uppercase tracking-wider text-neutral-300 font-medium mb-1.5">
-                        Sub-Category
-                      </label>
-                      <div className="relative">
-                        <Field
-                          as="select"
-                          name="subCategoryId"
-                          className="w-full bg-[#1e1c1a] border border-[#38332e] focus:border-[#c9a87c] rounded px-3.5 py-2.5 text-sm text-neutral-100 outline-none transition-colors cursor-pointer appearance-none"
-                        >
-                          <option value="" className="bg-[#1e1c1a] text-neutral-500">
-                            None (or select sub-category)
-                          </option>
-                          {availableSubCategories.map((sub) => (
-                            <option key={sub.id} value={sub.id} className="bg-[#1e1c1a] text-neutral-200">
-                              {sub.name}
-                            </option>
-                          ))}
-                        </Field>
-                        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
-                          <FolderGit2 size={14} className="text-[#c9a87c]" />
+                    {/* Sub-Category Select: Shown only when a category is selected */}
+                    {values.categoryId ? (
+                      <div className="animate-fadeIn">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs uppercase tracking-wider text-neutral-300 font-medium">
+                            Sub-Category
+                          </label>
+                          {isLoadingSubs && (
+                            <span className="text-[10px] text-[#c9a87c] font-mono lowercase">
+                              fetching API...
+                            </span>
+                          )}
                         </div>
+                        <div className="relative">
+                          <Field
+                            as="select"
+                            name="subCategoryId"
+                            disabled={isLoadingSubs}
+                            className="w-full bg-[#1e1c1a] border border-[#38332e] focus:border-[#c9a87c] rounded px-3.5 py-2.5 text-sm text-neutral-100 outline-none transition-colors cursor-pointer appearance-none disabled:opacity-60"
+                          >
+                            <option value="" className="bg-[#1e1c1a] text-neutral-500">
+                              {isLoadingSubs
+                                ? 'Loading sub-categories from API...'
+                                : liveSubCategories.length === 0
+                                ? 'No sub-categories in this category'
+                                : 'None (or select sub-category)'}
+                            </option>
+                            {liveSubCategories.map((sub) => (
+                              <option key={sub.id} value={sub.id} className="bg-[#1e1c1a] text-neutral-200">
+                                {sub.name}
+                              </option>
+                            ))}
+                          </Field>
+                          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                            <FolderGit2 size={14} className="text-[#c9a87c]" />
+                          </div>
+                        </div>
+                        <ErrorMessage
+                          name="subCategoryId"
+                          component="p"
+                          className="text-xs text-rose-400 mt-1 font-sans"
+                        />
                       </div>
-                      <ErrorMessage
-                        name="subCategoryId"
-                        component="p"
-                        className="text-xs text-rose-400 mt-1 font-sans"
-                      />
-                    </div>
+                    ) : (
+                      <div className="flex items-center justify-center p-3 border border-dashed border-[#2f2b27] rounded text-xs text-neutral-500 font-sans">
+                        Select a collection above to load its sub-categories
+                      </div>
+                    )}
                   </div>
 
                   {/* Gender, Fit, and Status Row */}
@@ -375,6 +420,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         <option value="ACTIVE" className="bg-[#1e1c1a]">ACTIVE</option>
                         <option value="DRAFT" className="bg-[#1e1c1a]">DRAFT</option>
                         <option value="INACTIVE" className="bg-[#1e1c1a]">INACTIVE</option>
+                        <option value="ARCHIVED" className="bg-[#1e1c1a]">ARCHIVED</option>
                       </Field>
                     </div>
                   </div>

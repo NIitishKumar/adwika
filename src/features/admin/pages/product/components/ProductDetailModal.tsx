@@ -217,6 +217,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       text: 'text-neutral-400',
       dot: 'bg-neutral-500',
     },
+    ARCHIVED: {
+      bg: 'bg-zinc-900 border-zinc-700',
+      text: 'text-zinc-400',
+      dot: 'bg-zinc-500',
+    },
   };
 
   const cat =

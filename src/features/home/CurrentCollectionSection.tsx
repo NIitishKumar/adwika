@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Eye } from 'lucide-react';
 import { Product, CurrencyConfig } from '@/types';
 import { PRODUCTS } from '@/data/products';
 import { formatPrice } from '@/utils';
+import { productService } from '@/features/admin/services/product.service';
 
 interface CurrentCollectionSectionProps {
   currency: CurrencyConfig;
@@ -15,9 +16,37 @@ export const CurrentCollectionSection: React.FC<CurrentCollectionSectionProps> =
   onQuickView,
 }) => {
   const navigate = useNavigate();
+  const [items, setItems] = useState<Product[]>(() => PRODUCTS.slice(0, 4));
 
-  // The 4 headline products from prototype
-  const prototypeProducts = PRODUCTS.slice(0, 4);
+  useEffect(() => {
+    let mounted = true;
+    productService
+      .getAll({ status: 'ACTIVE' })
+      .then((res) => {
+        if (mounted && res.data && res.data.length > 0) {
+          const mapped: Product[] = res.data.slice(0, 4).map((p) => ({
+            id: p.slug || p.id,
+            name: p.name,
+            subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
+            category: (p.category?.title?.toUpperCase() || 'KURTIS') as any,
+            priceINR: p.basePrice || 0,
+            priceUSD: Math.round((p.basePrice || 0) / 85),
+            image: p.imageUrl || '/images/default.jpg',
+            description: p.description || p.shortDescription || '',
+            craftDetails: [`Fit: ${p.fit}`],
+            fabric: p.fit || 'Mulberry Silk & Chanderi',
+            sizes: ['XS', 'S', 'M', 'L', 'XL'],
+          }));
+          setItems(mapped);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const prototypeProducts = items;
 
   return (
     <section className="bg-[#f5f4ef] text-neutral-900 py-20 md:py-28 px-6 md:px-12 lg:px-16 border-t border-neutral-200">

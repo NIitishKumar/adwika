@@ -265,6 +265,23 @@ export function useProductSubCategory() {
   };
 
   // Stats
+  const handleParentCategoryChange = async (categoryId: string) => {
+    setSelectedParentCategory(categoryId);
+    if (!categoryId || categoryId === 'ALL') {
+      loadData();
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await productSubCategoryService.getByCategoryId(categoryId);
+      setSubCategories(res.data);
+    } catch (err: any) {
+      showToast('error', err?.message || 'Failed to load sub-categories', 'Load Error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const totalCount = subCategories.length;
   const activeCount = subCategories.filter((s) => s.isActive).length;
   const inactiveCount = totalCount - activeCount;
@@ -282,6 +299,7 @@ export function useProductSubCategory() {
     setStatusFilter,
     selectedParentCategory,
     setSelectedParentCategory,
+    handleParentCategoryChange,
     sortField,
     setSortField,
     sortDirection,

@@ -3,76 +3,14 @@ import {
   CreateProductSubCategoryDto,
   UpdateProductSubCategoryDto,
 } from '../types/productSubCategory.types';
-import { API_BASE_URL, authFetch } from '@/config/api.config';
+import {
+  API_BASE_URL,
+  authFetch,
+  extractApiDataList,
+  extractApiDataObject,
+} from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_sub_categories_v1';
-
-const INITIAL_FALLBACK_SUBCATEGORIES: ProductSubCategory[] = [
-  {
-    id: 'sub-kurtas-suits',
-    uniqueId: 'sub-kurtas-suits',
-    categoryId: 'cat-kurtis',
-    category: {
-      id: 'cat-kurtis',
-      title: 'Kurtis',
-      imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80',
-    },
-    name: 'Kurtas & Suits',
-    slug: 'kurtas-and-suits',
-    imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'sub-anarkali-sets',
-    uniqueId: 'sub-anarkali-sets',
-    categoryId: 'cat-suits',
-    category: {
-      id: 'cat-suits',
-      title: 'Suits',
-      imageUrl: 'https://images.unsplash.com/photo-1583391733975-ae9847156947?auto=format&fit=crop&w=600&q=80',
-    },
-    name: 'Anarkali Sets',
-    slug: 'anarkali-sets',
-    imageUrl: 'https://images.unsplash.com/photo-1583391733975-ae9847156947?auto=format&fit=crop&w=600&q=80',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'sub-chanderi-coords',
-    uniqueId: 'sub-chanderi-coords',
-    categoryId: 'cat-coords',
-    category: {
-      id: 'cat-coords',
-      title: 'Co-ords',
-      imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80',
-    },
-    name: 'Chanderi Lounge Sets',
-    slug: 'chanderi-lounge-sets',
-    imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'sub-festive-shirts',
-    uniqueId: 'sub-festive-shirts',
-    categoryId: 'cat-shirts',
-    category: {
-      id: 'cat-shirts',
-      title: 'Shirts',
-      imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=600&q=80',
-    },
-    name: 'Resort & Festive Shirts',
-    slug: 'resort-and-festive-shirts',
-    imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=600&q=80',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 function normalizeSubCategory(raw: any): ProductSubCategory {
   const id = raw.id || raw.uniqueId || raw._id || `subcat-${Date.now()}`;
@@ -82,11 +20,11 @@ function normalizeSubCategory(raw: any): ProductSubCategory {
     categoryId: String(raw.categoryId || raw.category?.id || ''),
     category: raw.category
       ? {
-          id: String(raw.category.id || raw.category.uniqueId || raw.categoryId || ''),
-          uniqueId: String(raw.category.uniqueId || raw.category.id || ''),
-          title: raw.category.title || raw.category.name || '',
-          imageUrl: raw.category.imageUrl || raw.category.image_url || '',
-        }
+        id: String(raw.category.id || raw.category.uniqueId || raw.categoryId || ''),
+        uniqueId: String(raw.category.uniqueId || raw.category.id || ''),
+        title: raw.category.title || raw.category.name || '',
+        imageUrl: raw.category.imageUrl || raw.category.image_url || '',
+      }
       : undefined,
     name: raw.name || '',
     slug: raw.slug || '',
@@ -95,8 +33,8 @@ function normalizeSubCategory(raw: any): ProductSubCategory {
       typeof raw.isActive === 'boolean'
         ? raw.isActive
         : typeof raw.is_active === 'boolean'
-        ? raw.is_active
-        : true,
+          ? raw.is_active
+          : true,
     createdAt: raw.createdAt || new Date().toISOString(),
     updatedAt: raw.updatedAt || new Date().toISOString(),
   };
@@ -106,12 +44,11 @@ function getStoredSubCategories(): ProductSubCategory[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_FALLBACK_SUBCATEGORIES));
-      return INITIAL_FALLBACK_SUBCATEGORIES;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_FALLBACK_SUBCATEGORIES;
+    return [];
   }
 }
 
@@ -124,43 +61,135 @@ function saveStoredSubCategories(items: ProductSubCategory[]): void {
 }
 
 export const productSubCategoryService = {
-  /**
-   * GET /api/v1/product-sub-categories
-   */
-  async getAll(categoryId?: string): Promise<{ data: ProductSubCategory[]; fromApi: boolean }> {
-    try {
-      const url = categoryId
-        ? `${API_BASE_URL}/product-sub-categories?categoryId=${encodeURIComponent(categoryId)}`
-        : `${API_BASE_URL}/product-sub-categories`;
 
-      const response = await authFetch(url, {
+  async getByCategoryId(
+    categoryId: string
+  ): Promise<{ data: ProductSubCategory[]; fromApi: boolean }> {
+    if (!categoryId || categoryId === 'ALL') {
+      return { data: [], fromApi: true };
+    }
+
+    const cleanCatId = categoryId.trim();
+
+    try {
+      let response = await authFetch(
+        `${API_BASE_URL}/product-sub-categories?categoryId=${encodeURIComponent(cleanCatId)}`,
+        {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        }
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        const rawList = extractApiDataList(json);
+        const list = rawList.map(normalizeSubCategory);
+        saveStoredSubCategories(list);
+        return { data: list, fromApi: true };
+      }
+
+    } catch (err) {
+      console.error('Failed to fetch sub-categories for categoryId:', cleanCatId, err);
+    }
+
+    const stored = getStoredSubCategories();
+    return {
+      data: stored.filter(
+        (s) =>
+          s.categoryId === cleanCatId ||
+          s.category?.id === cleanCatId ||
+          s.category?.uniqueId === cleanCatId
+      ),
+      fromApi: false,
+    };
+  },
+
+  /**
+   * 3.3 Get Sub-Categories
+   * GET /api/v1/product-sub-categories (also accessible as /sub-categories)
+   * Query Params: categoryId=<id_or_slug>, isActive=true
+   */
+  async getAll(
+    filter?: string | { categoryId?: string; isActive?: boolean }
+  ): Promise<{ data: ProductSubCategory[]; fromApi: boolean }> {
+    const catId = typeof filter === 'string' ? filter : filter?.categoryId;
+    const isActive = typeof filter === 'object' ? filter?.isActive : undefined;
+
+    if (catId) {
+      return this.getByCategoryId(catId);
+    }
+
+    const params = new URLSearchParams();
+    if (catId) params.append('categoryId', catId);
+    if (isActive !== undefined) params.append('isActive', String(isActive));
+
+    const qs = params.toString() ? `?${params.toString()}` : '';
+
+    try {
+      let response = await authFetch(`${API_BASE_URL}/product-sub-categories${qs}`, {
         method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
+        headers: { Accept: 'application/json' },
       });
 
       if (response.ok) {
         const json = await response.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
-        if (Array.isArray(rawList)) {
-          const list = rawList.map(normalizeSubCategory);
-          saveStoredSubCategories(list);
-          return { data: list, fromApi: true };
-        }
+        const rawList = extractApiDataList(json);
+        const list = rawList.map(normalizeSubCategory);
+        saveStoredSubCategories(list);
+        return { data: list, fromApi: true };
       }
     } catch {
-      // Backend offline or booting; fallback to local storage
+      // Backend offline; fallback to cached items
     }
 
     const stored = getStoredSubCategories();
-    if (categoryId) {
+    if (catId) {
       return {
-        data: stored.filter((s) => s.categoryId === categoryId),
+        data: stored.filter((s) => s.categoryId === catId || s.category?.id === catId),
         fromApi: false,
       };
     }
     return { data: stored, fromApi: false };
+  },
+
+  /**
+   * Get Single Sub-Category
+   * GET /api/v1/product-sub-categories/:id
+   */
+  async getById(id: string): Promise<{ data: ProductSubCategory; fromApi: boolean }> {
+    try {
+      let response = await authFetch(`${API_BASE_URL}/product-sub-categories/${encodeURIComponent(id)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+
+      if (response.status === 404) {
+        response = await authFetch(`${API_BASE_URL}/sub-categories/${encodeURIComponent(id)}`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+      }
+
+      if (response.ok) {
+        const json = await response.json();
+        const raw = extractApiDataObject(json);
+        if (raw) {
+          return { data: normalizeSubCategory(raw), fromApi: true };
+        }
+      }
+    } catch {
+      // offline fallback
+    }
+
+    const stored = getStoredSubCategories();
+    const found = stored.find(
+      (s) => s.id === id || s.slug === id || s.uniqueId === id
+    );
+    if (found) {
+      return { data: found, fromApi: false };
+    }
+
+    throw new Error(`Sub-category with ID "${id}" was not found.`);
   },
 
   /**

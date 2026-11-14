@@ -1,64 +1,12 @@
 import { ProductColor, CreateProductColorDto, UpdateProductColorDto } from '../types/productColor.types';
-import { API_BASE_URL, authFetch } from '@/config/api.config';
+import {
+  API_BASE_URL,
+  authFetch,
+  extractApiDataList,
+  extractApiDataObject,
+} from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_colors_v1';
-
-const INITIAL_FALLBACK_COLORS: ProductColor[] = [
-  {
-    id: '6ae6267ccad72829507651c8',
-    uniqueId: '6ae6267ccad72829507651c8',
-    name: 'Midnight Blue',
-    code: 'MID-BLU',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'col-gulabi',
-    uniqueId: 'col-gulabi',
-    name: 'Gulabi Pink',
-    code: 'GLB-PNK',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'col-ivory',
-    uniqueId: 'col-ivory',
-    name: 'Kashmiri Ivory',
-    code: 'IVR',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'col-terracotta',
-    uniqueId: 'col-terracotta',
-    name: 'Terracotta Rust',
-    code: 'TER-RST',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'col-haldi',
-    uniqueId: 'col-haldi',
-    name: 'Haldi Gold',
-    code: 'HLD-GLD',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'col-jamun',
-    uniqueId: 'col-jamun',
-    name: 'Jamun Violet',
-    code: 'JMN-VLT',
-    isActive: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 function normalizeProductColor(raw: any): ProductColor {
   const id = raw.id || raw.uniqueId || raw._id || `col-${Date.now()}`;
@@ -66,7 +14,7 @@ function normalizeProductColor(raw: any): ProductColor {
     id,
     uniqueId: raw.uniqueId || id,
     name: raw.name || '',
-    code: (raw.code || '').toUpperCase(),
+    code: (raw.code || raw.hex || raw.colorCode || '').toUpperCase(),
     isActive: typeof raw.isActive === 'boolean' ? raw.isActive : true,
     createdAt: raw.createdAt || new Date().toISOString(),
     updatedAt: raw.updatedAt || new Date().toISOString(),
@@ -77,12 +25,11 @@ function getStoredProductColors(): ProductColor[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_FALLBACK_COLORS));
-      return INITIAL_FALLBACK_COLORS;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_FALLBACK_COLORS;
+    return [];
   }
 }
 
@@ -96,12 +43,14 @@ function saveStoredProductColors(items: ProductColor[]): void {
 
 export const productColorService = {
   /**
+   * 4.2 Get Colors
    * GET /api/v1/product-colors
-   * Fetches all product colors from backend API
+   * Query Params: isActive=true
    */
-  async getAll(): Promise<{ data: ProductColor[]; fromApi: boolean }> {
+  async getAll(params?: { isActive?: boolean }): Promise<{ data: ProductColor[]; fromApi: boolean }> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/product-colors`, {
+      const qs = params?.isActive !== undefined ? `?isActive=${params.isActive}` : '';
+      const response = await authFetch(`${API_BASE_URL}/product-colors${qs}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -110,12 +59,10 @@ export const productColorService = {
 
       if (response.ok) {
         const json = await response.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
-        if (Array.isArray(rawList)) {
-          const list = rawList.map(normalizeProductColor);
-          saveStoredProductColors(list);
-          return { data: list, fromApi: true };
-        }
+        const rawList = extractApiDataList(json);
+        const list = rawList.map(normalizeProductColor);
+        saveStoredProductColors(list);
+        return { data: list, fromApi: true };
       }
     } catch {
       // Backend not yet serving GET or starting up

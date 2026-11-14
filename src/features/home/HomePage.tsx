@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   HeroSection,
@@ -14,6 +14,7 @@ import {
   NewsletterSection,
 } from './';
 import { Product, CurrencyConfig, CategoryType } from '@/types';
+import { useCategoryStore } from '@/stores';
 
 interface HomePageProps {
   currency: CurrencyConfig;
@@ -27,6 +28,10 @@ export const HomePage: React.FC<HomePageProps> = ({
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = React.useState<CategoryType>('ALL');
 
+  useEffect(() => {
+    useCategoryStore.getState().fetchCategories();
+  }, []);
+
   const handleScrollToExplore = () => {
     const el = document.getElementById('categories-grid');
     if (el) {
@@ -35,19 +40,21 @@ export const HomePage: React.FC<HomePageProps> = ({
   };
 
   const handleSelectCategoryFromGrid = (category: CategoryType) => {
-    if (category === 'KURTIS') {
+    const raw = String(category);
+    const norm = raw.toUpperCase().replace(/[\s_-]+/g, '');
+    if (norm === 'KURTIS' || norm === 'KURTI') {
       navigate('/kurtis');
-    } else if (category === 'SUITS') {
+    } else if (norm === 'SUITS' || norm === 'SUIT') {
       navigate('/suits');
-    } else if (category === 'CO-ORDS') {
+    } else if (norm === 'COORDS' || norm === 'COORD') {
       navigate('/coords');
-    } else if (category === 'SHIRTS') {
+    } else if (norm === 'SHIRTS' || norm === 'SHIRT') {
       navigate('/shirts');
-    } else if (category === 'SAREES') {
+    } else if (norm === 'SAREES' || norm === 'SAREE') {
       navigate('/sarees');
     } else {
-      setSelectedCategory(category);
-      document.getElementById('collection-showcase')?.scrollIntoView({ behavior: 'smooth' });
+      const slug = raw.toLowerCase().replace(/[\s_]+/g, '-');
+      navigate(`/category/${slug}`);
     }
   };
 

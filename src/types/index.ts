@@ -8,13 +8,16 @@ export type CategoryType =
   | 'WOMEN'
   | 'OCCASIONWEAR'
   | 'CRAFT & DETAIL'
-  | 'MEN';
+  | 'MEN'
+  | (string & {});
 
 export interface Product {
   id: string;
   name: string;
   subtitle: string;
   category: CategoryType;
+  categoryId?: string;
+  subCategoryId?: string;
   priceINR: number;
   priceUSD: number;
   image: string;

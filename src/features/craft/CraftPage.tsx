@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PRODUCTS } from '@/data/products';
 import { ProductCard } from '@/features/products';
 import { CurrencyConfig, Product } from '@/types';
 import { Sparkles, Compass, Feather } from 'lucide-react';
+import { productService } from '@/features/admin/services/product.service';
 
 interface CraftPageProps {
   currency: CurrencyConfig;
@@ -13,7 +14,43 @@ export const CraftPage: React.FC<CraftPageProps> = ({
   currency,
   onQuickView,
 }) => {
-  const craftProducts = PRODUCTS.filter((p) => p.category === 'CRAFT & DETAIL');
+  const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadCraftProducts = async () => {
+      try {
+        const res = await productService.getAll({ status: 'ACTIVE' });
+        if (mounted && res.data && res.data.length > 0) {
+          const mapped: Product[] = res.data.map((p) => ({
+            id: p.slug || p.id,
+            name: p.name,
+            subtitle: p.shortDescription || p.category?.title || 'Craft & Detail Archive',
+            category: 'CRAFT & DETAIL',
+            priceINR: p.basePrice || 0,
+            priceUSD: Math.round((p.basePrice || 0) / 85),
+            image: p.imageUrl || '/images/default.jpg',
+            description: p.description || p.shortDescription || '',
+            craftDetails: [`Silhouette Fit: ${p.fit}`],
+            fabric: p.fit || 'Mulberry Silk & Chanderi',
+            sizes: ['XS', 'S', 'M', 'L', 'XL'],
+          }));
+          setLiveProducts(mapped);
+        }
+      } catch {
+        // Fallback to static data
+      }
+    };
+    loadCraftProducts();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const craftProducts =
+    liveProducts.length > 0
+      ? liveProducts
+      : PRODUCTS.filter((p) => p.category === 'CRAFT & DETAIL');
 
   return (
     <div className="pt-24 min-h-screen bg-[#080809] text-neutral-100">

@@ -50,7 +50,7 @@ export const productSchema = z.object({
     .number()
     .min(0, 'Base price cannot be negative'),
   status: z
-    .enum(['ACTIVE', 'INACTIVE', 'DRAFT'])
+    .enum(['ACTIVE', 'INACTIVE', 'DRAFT', 'ARCHIVED'])
     .default('ACTIVE'),
   meta_title: z
     .string()

@@ -31,7 +31,7 @@ export const ProductSubCategoryPage: React.FC = () => {
     statusFilter,
     setStatusFilter,
     selectedParentCategory,
-    setSelectedParentCategory,
+    handleParentCategoryChange,
     sortField,
     setSortField,
     sortDirection,
@@ -164,7 +164,7 @@ export const ProductSubCategoryPage: React.FC = () => {
             <FolderTree size={13} className="text-[#c9a87c]" />
             <select
               value={selectedParentCategory}
-              onChange={(e) => setSelectedParentCategory(e.target.value)}
+              onChange={(e) => handleParentCategoryChange(e.target.value)}
               className="bg-transparent text-xs text-neutral-200 outline-none cursor-pointer max-w-[140px] truncate"
             >
               <option value="ALL" className="bg-[#1b1917]">All Collections</option>

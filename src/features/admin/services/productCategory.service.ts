@@ -3,77 +3,14 @@ import {
   CreateProductCategoryDto,
   UpdateProductCategoryDto,
 } from '../types/productCategory.types';
-import { API_BASE_URL, authFetch } from '@/config/api.config';
+import {
+  API_BASE_URL,
+  authFetch,
+  extractApiDataList,
+  extractApiDataObject,
+} from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_categories_v1';
-
-const INITIAL_FALLBACK_CATEGORIES: ProductCategory[] = [
-  {
-    id: 'cat-kurtis',
-    uniqueId: 'cat-kurtis',
-    categoryId: 'kurtis',
-    title: 'Kurtis',
-    description: 'Handcrafted luxury kurtis in artisanal chanderi and handwoven silks',
-    imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80',
-    bannerImageUrl: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1400&q=80',
-    orderBy: 1,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'cat-suits',
-    uniqueId: 'cat-suits',
-    categoryId: 'suits',
-    title: 'Suits',
-    description: 'Regal Anarkali, straight cut, and royal festive three-piece ensembles',
-    imageUrl: 'https://images.unsplash.com/photo-1583391733975-ae9847156947?auto=format&fit=crop&w=600&q=80',
-    bannerImageUrl: 'https://images.unsplash.com/photo-1583391733975-ae9847156947?auto=format&fit=crop&w=1400&q=80',
-    orderBy: 2,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'cat-coords',
-    uniqueId: 'cat-coords',
-    categoryId: 'co-ords',
-    title: 'Co-ords',
-    description: 'Modern coordinated silhouettes merging traditional craft with runway tailoring',
-    imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80',
-    bannerImageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1400&q=80',
-    orderBy: 3,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'cat-shirts',
-    uniqueId: 'cat-shirts',
-    categoryId: 'shirts',
-    title: 'Shirts',
-    description: 'Crisp artisanal block-printed and woven statement shirts',
-    imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=600&q=80',
-    bannerImageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=1400&q=80',
-    orderBy: 4,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'cat-sarees',
-    uniqueId: 'cat-sarees',
-    categoryId: 'sarees',
-    title: 'Sarees',
-    description: 'Timeless heirloom weaves and hand-embroidered drapes (Coming Soon)',
-    imageUrl: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=600&q=80',
-    bannerImageUrl: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=1400&q=80',
-    orderBy: 5,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 function normalizeCategory(raw: any): ProductCategory {
   const id = raw.id || raw.uniqueId || raw._id || raw.categoryId || `cat-${Date.now()}`;
@@ -102,12 +39,11 @@ function getStoredCategories(): ProductCategory[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_FALLBACK_CATEGORIES));
-      return INITIAL_FALLBACK_CATEGORIES;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_FALLBACK_CATEGORIES;
+    return [];
   }
 }
 
@@ -121,31 +57,77 @@ function saveStoredCategories(items: ProductCategory[]): void {
 
 export const productCategoryService = {
   /**
-   * GET /api/v1/product-categories
+   * 3.1 Get All Categories
+   * GET /api/v1/product-categories (also accessible as /categories)
+   * Query Params: isActive=true
    */
-  async getAll(): Promise<{ data: ProductCategory[]; fromApi: boolean }> {
+  async getAll(params?: { isActive?: boolean }): Promise<{ data: ProductCategory[]; fromApi: boolean }> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/product-categories`, {
+      const qs = params?.isActive !== undefined ? `?isActive=${params.isActive}` : '';
+      let response = await authFetch(`${API_BASE_URL}/product-categories${qs}`, {
         method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
+        headers: { Accept: 'application/json' },
       });
+
+      if (response.status === 404) {
+        response = await authFetch(`${API_BASE_URL}/categories${qs}`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+      }
 
       if (response.ok) {
         const json = await response.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
-        if (Array.isArray(rawList)) {
-          const list = rawList.map(normalizeCategory);
-          saveStoredCategories(list);
-          return { data: list, fromApi: true };
-        }
+        const rawList = extractApiDataList(json);
+        const list = rawList.map(normalizeCategory);
+        saveStoredCategories(list);
+        return { data: list, fromApi: true };
       }
     } catch {
-      // Backend offline or booting; fallback to local storage
+      // Backend offline; fallback to cached items
     }
 
     return { data: getStoredCategories(), fromApi: false };
+  },
+
+  /**
+   * 3.2 Get Single Category
+   * GET /api/v1/product-categories/:id (Accepts Mongo _id or slug kurtis, suits, co-ords, etc.)
+   */
+  async getById(id: string): Promise<{ data: ProductCategory; fromApi: boolean }> {
+    try {
+      let response = await authFetch(`${API_BASE_URL}/product-categories/${encodeURIComponent(id)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+
+      if (response.status === 404) {
+        response = await authFetch(`${API_BASE_URL}/categories/${encodeURIComponent(id)}`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+      }
+
+      if (response.ok) {
+        const json = await response.json();
+        const raw = extractApiDataObject(json);
+        if (raw) {
+          return { data: normalizeCategory(raw), fromApi: true };
+        }
+      }
+    } catch {
+      // offline fallback
+    }
+
+    const stored = getStoredCategories();
+    const found = stored.find(
+      (c) => c.id === id || c.categoryId === id || c.uniqueId === id
+    );
+    if (found) {
+      return { data: found, fromApi: false };
+    }
+
+    throw new Error(`Category with ID or slug "${id}" was not found.`);
   },
 
   /**

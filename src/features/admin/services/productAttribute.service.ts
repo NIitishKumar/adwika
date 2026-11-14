@@ -3,84 +3,14 @@ import {
   CreateProductAttributeDto,
   UpdateProductAttributeDto,
 } from '../types/productAttribute.types';
-import { API_BASE_URL, authFetch } from '@/config/api.config';
+import {
+  API_BASE_URL,
+  authFetch,
+  extractApiDataList,
+  extractApiDataObject,
+} from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_attributes_v1';
-
-const INITIAL_FALLBACK_ATTRIBUTES: ProductAttribute[] = [
-  {
-    id: '6ae632dfb22413fc2864e67c',
-    uniqueId: '6ae632dfb22413fc2864e67c',
-    productId: '6ae63157baaed242a3252445',
-    product: {
-      id: '6ae63157baaed242a3252445',
-      uniqueId: '6ae63157baaed242a3252445',
-      name: 'Classic Oxford Cotton Shirt Ragular Fit',
-      slug: 'classic-oxford-cotton-shirt-ragular-fit',
-    },
-    name: 'Fabric',
-    value: '100% Pure Mulberry Silk',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'attr-oxford-weave',
-    uniqueId: 'attr-oxford-weave',
-    productId: '6ae63157baaed242a3252445',
-    product: {
-      id: '6ae63157baaed242a3252445',
-      uniqueId: '6ae63157baaed242a3252445',
-      name: 'Classic Oxford Cotton Shirt Ragular Fit',
-      slug: 'classic-oxford-cotton-shirt-ragular-fit',
-    },
-    name: 'Weave',
-    value: 'Traditional Handloom Pinpoint Oxford',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'attr-anarkali-fabric',
-    uniqueId: 'attr-anarkali-fabric',
-    productId: 'prod-royal-anarkali',
-    product: {
-      id: 'prod-royal-anarkali',
-      name: 'Gulab Chanderi Hand-Embroidered Anarkali Set',
-      slug: 'gulab-chanderi-hand-embroidered-anarkali-set',
-    },
-    name: 'Fabric Composition',
-    value: 'Pure Chanderi Silk with Cotton Silk Lining',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'attr-anarkali-care',
-    uniqueId: 'attr-anarkali-care',
-    productId: 'prod-royal-anarkali',
-    product: {
-      id: 'prod-royal-anarkali',
-      name: 'Gulab Chanderi Hand-Embroidered Anarkali Set',
-      slug: 'gulab-chanderi-hand-embroidered-anarkali-set',
-    },
-    name: 'Care Instructions',
-    value: 'Dry Clean Only. Store wrapped in pure muslin cloth.',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'attr-noor-craft',
-    uniqueId: 'attr-noor-craft',
-    productId: 'prod-noor-coord',
-    product: {
-      id: 'prod-noor-coord',
-      name: 'Noor Artisanal Lounge Co-ord Set',
-      slug: 'noor-artisanal-lounge-coord-set',
-    },
-    name: 'Artisan Technique',
-    value: 'Hand Block-Printed using natural vegetable dyes',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 function normalizeAttribute(raw: any): ProductAttribute {
   const id = raw.id || raw.uniqueId || raw._id || `attr-${Date.now()}`;
@@ -109,12 +39,11 @@ function getStoredAttributes(): ProductAttribute[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_FALLBACK_ATTRIBUTES));
-      return INITIAL_FALLBACK_ATTRIBUTES;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_FALLBACK_ATTRIBUTES;
+    return [];
   }
 }
 
@@ -145,8 +74,8 @@ export const productAttributeService = {
 
       if (response.ok) {
         const json = await response.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
-        if (Array.isArray(rawList)) {
+        const rawList = extractApiDataList(json);
+        if (Array.isArray(rawList) && (rawList.length > 0 || json?.success)) {
           const list = rawList.map(normalizeAttribute);
           saveStoredAttributes(list);
           return { data: list, fromApi: true };

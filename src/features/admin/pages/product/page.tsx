@@ -7,6 +7,7 @@ import {
   RefreshCw,
   FolderTree,
   FolderGit2,
+  RotateCcw,
 } from 'lucide-react';
 import {
   ProductStatusFilter,
@@ -27,6 +28,8 @@ export const ProductPage: React.FC = () => {
     filteredProducts,
     categories,
     subCategories,
+    isLoadingSubCategories,
+    handleCategoryFilterChange,
     fitSizes,
     categoryMap,
     subCategoryMap,
@@ -71,12 +74,20 @@ export const ProductPage: React.FC = () => {
     handleFormSubmit,
     handleDeleteConfirm,
     handleToggleStatus,
+    handleResetFilters,
   } = useProduct();
 
   // Filter available sub-categories in filter dropdown if a category is selected
   const availableFilterSubCategories = subCategories.filter(
     (s) => selectedCategory === 'ALL' || s.categoryId === selectedCategory
   );
+
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    statusFilter !== 'ALL' ||
+    genderFilter !== 'ALL' ||
+    selectedCategory !== 'ALL' ||
+    selectedSubCategory !== 'ALL';
 
   return (
     <div className="space-y-6">
@@ -186,10 +197,7 @@ export const ProductPage: React.FC = () => {
               <FolderTree size={13} className="text-[#c9a87c]" />
               <select
                 value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value);
-                  setSelectedSubCategory('ALL');
-                }}
+                onChange={(e) => handleCategoryFilterChange(e.target.value)}
                 className="bg-transparent text-xs text-neutral-200 outline-none cursor-pointer max-w-[130px] truncate"
               >
                 <option value="ALL" className="bg-[#1b1917]">All Collections</option>
@@ -201,22 +209,27 @@ export const ProductPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Sub-Category Filter */}
-            <div className="flex items-center gap-1.5 bg-[#1b1917] border border-[#332e29] rounded px-3 py-1.5 text-xs text-neutral-300">
-              <FolderGit2 size={13} className="text-[#c9a87c]" />
-              <select
-                value={selectedSubCategory}
-                onChange={(e) => setSelectedSubCategory(e.target.value)}
-                className="bg-transparent text-xs text-neutral-200 outline-none cursor-pointer max-w-[130px] truncate"
-              >
-                <option value="ALL" className="bg-[#1b1917]">All Sub-Categories</option>
-                {availableFilterSubCategories.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-[#1b1917]">
-                    {s.name}
+            {/* Sub-Category Filter: Shown only when a category is selected */}
+            {selectedCategory !== 'ALL' && (
+              <div className="flex items-center gap-1.5 bg-[#1b1917] border border-[#332e29] rounded px-3 py-1.5 text-xs text-neutral-300 animate-fadeIn">
+                <FolderGit2 size={13} className="text-[#c9a87c]" />
+                <select
+                  value={selectedSubCategory}
+                  onChange={(e) => setSelectedSubCategory(e.target.value)}
+                  disabled={isLoadingSubCategories}
+                  className="bg-transparent text-xs text-neutral-200 outline-none cursor-pointer max-w-[130px] truncate disabled:opacity-60"
+                >
+                  <option value="ALL" className="bg-[#1b1917]">
+                    {isLoadingSubCategories ? 'Loading sub-categories...' : 'All Sub-Categories'}
                   </option>
-                ))}
-              </select>
-            </div>
+                  {subCategories.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-[#1b1917]">
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Sort Selector */}
             <div className="flex items-center gap-1.5 bg-[#1b1917] border border-[#332e29] rounded px-3 py-1.5 text-xs text-neutral-300">
@@ -286,6 +299,18 @@ export const ProductPage: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {/* Clear Filters Button */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[#c9a87c] hover:text-[#f2e2d0] border border-[#4d3a2b] bg-[#29221b] hover:bg-[#382d24] rounded flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <RotateCcw size={10} />
+              <span>Clear Filters</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -299,6 +324,7 @@ export const ProductPage: React.FC = () => {
         onDelete={handleOpenDelete}
         onToggleStatus={handleToggleStatus}
         isLoading={isLoading}
+        onResetFilters={handleResetFilters}
       />
 
       {/* Add / Edit Modal */}

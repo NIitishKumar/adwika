@@ -1,6 +1,7 @@
-import React from 'react';
-import { ArrowUpRight, Sparkles, Clock } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { ArrowUpRight, Clock } from 'lucide-react';
 import { CategoryType } from '@/types';
+import { useCategoryStore } from '@/stores';
 
 interface CategoryGridSectionProps {
   onSelectCategory: (category: CategoryType) => void;
@@ -16,7 +17,7 @@ interface CategoryCardItem {
   toneColor: string;
 }
 
-const CATEGORY_ITEMS: CategoryCardItem[] = [
+const DEFAULT_CATEGORY_ITEMS: CategoryCardItem[] = [
   {
     id: 'KURTIS',
     title: 'KURTIS',
@@ -60,9 +61,79 @@ const CATEGORY_ITEMS: CategoryCardItem[] = [
   },
 ];
 
+const TONE_COLORS = [
+  'bg-[#d8d5cb]',
+  'bg-[#c5b59f]',
+  'bg-[#e0d6cb]',
+  'bg-[#cfc8bc]',
+  'bg-[#e4dcce]',
+  'bg-[#ded6c9]',
+];
+
+const DEFAULT_IMAGES = [
+  '/images/aangan-kurta.jpg',
+  '/images/occasionwear-collection.jpg',
+  '/images/gulab-set.jpg',
+  '/images/craft-detail-collection.jpg',
+  '/images/hero-user.jpg',
+];
+
 export const CategoryGridSection: React.FC<CategoryGridSectionProps> = ({
   onSelectCategory,
 }) => {
+  const storeCategories = useCategoryStore((state) => state.categories);
+
+  const categories = useMemo<CategoryCardItem[]>(() => {
+    if (!storeCategories || storeCategories.length === 0) {
+      return DEFAULT_CATEGORY_ITEMS;
+    }
+
+    const total = storeCategories.length;
+    return storeCategories.map((cat, index) => {
+      // Layout calculation:
+      // First 2 items get 6 columns (hero row), next items get 4 columns (triplets)
+      let cols = 'lg:col-span-4';
+      if (total <= 2) {
+        cols = 'lg:col-span-6';
+      } else if (index < 2) {
+        cols = 'lg:col-span-6';
+      } else {
+        const remaining = total - 2;
+        if (remaining % 3 === 0) {
+          cols = 'lg:col-span-4';
+        } else if (remaining === 1 && index === total - 1) {
+          cols = 'lg:col-span-12';
+        } else if (remaining === 2 && index >= total - 2) {
+          cols = 'lg:col-span-6';
+        } else {
+          cols = 'lg:col-span-4';
+        }
+      }
+
+      const title = cat.title ? cat.title.toUpperCase() : 'COLLECTION';
+      const isSaree =
+        title.includes('SAREE') ||
+        (cat.categoryId && cat.categoryId.toLowerCase().includes('saree'));
+
+      const image =
+        cat.imageUrl ||
+        cat.bannerImageUrl ||
+        DEFAULT_IMAGES[index % DEFAULT_IMAGES.length];
+
+      return {
+        id: (cat.id || cat.categoryId?.toUpperCase() || title) as CategoryType,
+        title,
+        tagline:
+          cat.description ||
+          'Rooted in Indian artisanal textile heritage, tailored for contemporary ease.',
+        image,
+        comingSoon: Boolean(isSaree),
+        cols,
+        toneColor: TONE_COLORS[index % TONE_COLORS.length],
+      };
+    });
+  }, [storeCategories]);
+
   return (
     <section id="categories-grid" className="bg-[#f5f4ef] text-neutral-900 py-20 md:py-28 px-6 md:px-12 lg:px-16 transition-colors duration-500">
       <div className="max-w-[1560px] mx-auto">
@@ -82,9 +153,9 @@ export const CategoryGridSection: React.FC<CategoryGridSectionProps> = ({
           </p>
         </div>
 
-        {/* 5-Category Luxury Grid */}
+        {/* Dynamic Category Luxury Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 md:gap-8">
-          {CATEGORY_ITEMS.map((item) => (
+          {categories.map((item) => (
             <div
               key={item.id}
               onClick={() => onSelectCategory(item.id)}
@@ -94,6 +165,12 @@ export const CategoryGridSection: React.FC<CategoryGridSectionProps> = ({
               <img
                 src={item.image}
                 alt={item.title}
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.endsWith('/images/aangan-kurta.jpg')) {
+                    target.src = '/images/aangan-kurta.jpg';
+                  }
+                }}
                 className="absolute inset-0 w-full h-full object-cover object-center filter contrast-105 brightness-95 group-hover:scale-105 group-hover:brightness-100 transition-all duration-700 ease-out"
               />
 

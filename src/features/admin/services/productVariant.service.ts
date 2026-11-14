@@ -3,123 +3,25 @@ import {
   CreateProductVariantDto,
   UpdateProductVariantDto,
 } from '../types/productVariant.types';
-import { API_BASE_URL, authFetch } from '@/config/api.config';
+import {
+  API_BASE_URL,
+  authFetch,
+  extractApiDataList,
+  extractApiDataObject,
+} from '@/config/api.config';
 
 const STORAGE_KEY = 'adwika_admin_product_variants_v1';
-
-const INITIAL_FALLBACK_VARIANTS: ProductVariant[] = [
-  {
-    id: '6ae6374e02b652733c3e70cc',
-    uniqueId: '6ae6374e02b652733c3e70cc',
-    variantId: '6ae6374e02b652733c3e70cc',
-    productId: '6ae63157baaed242a3252445',
-    product: {
-      id: '6ae63157baaed242a3252445',
-      uniqueId: '6ae63157baaed242a3252445',
-      name: 'Classic Oxford Cotton Shirt Ragular Fit',
-      slug: 'classic-oxford-cotton-shirt-ragular-fit',
-      basePrice: 1498,
-    },
-    fitSizeId: '6ae6223e09ce4684c74844cd',
-    fitSize: {
-      id: '6ae6223e09ce4684c74844cd',
-      uniqueId: '6ae6223e09ce4684c74844cd',
-      name: 'Slim Fit2',
-      fitCode: 'SLIM2',
-      displayOrder: 1,
-    },
-    productColorId: '6ae6267ccad72829507651c8',
-    productColor: {
-      id: '6ae6267ccad72829507651c8',
-      uniqueId: '6ae6267ccad72829507651c8',
-      name: 'Midnight Blue',
-      code: 'MID-BLU',
-    },
-    price: 1999,
-    compareAtPrice: 2499,
-    sku: 'KURTA-SLIM-MIDBLU-01',
-    stockQuantity: 25,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'var-anarkali-gulabi-m',
-    uniqueId: 'var-anarkali-gulabi-m',
-    variantId: 'var-anarkali-gulabi-m',
-    productId: 'prod-royal-anarkali',
-    product: {
-      id: 'prod-royal-anarkali',
-      name: 'Gulab Chanderi Hand-Embroidered Anarkali Set',
-      slug: 'gulab-chanderi-hand-embroidered-anarkali-set',
-      basePrice: 18500,
-    },
-    fitSizeId: 'fit-regular',
-    fitSize: {
-      id: 'fit-regular',
-      name: 'Regular Fit',
-      fitCode: 'REG',
-      displayOrder: 2,
-    },
-    productColorId: 'col-gulabi',
-    productColor: {
-      id: 'col-gulabi',
-      name: 'Gulabi Pink',
-      code: 'GLB-PNK',
-    },
-    price: 18500,
-    compareAtPrice: 22000,
-    sku: 'ANR-REG-GLBPNK-01',
-    stockQuantity: 12,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'var-oxford-relaxed-ivory',
-    uniqueId: 'var-oxford-relaxed-ivory',
-    variantId: 'var-oxford-relaxed-ivory',
-    productId: '6ae63157baaed242a3252445',
-    product: {
-      id: '6ae63157baaed242a3252445',
-      name: 'Classic Oxford Cotton Shirt Ragular Fit',
-      slug: 'classic-oxford-cotton-shirt-ragular-fit',
-      basePrice: 1498,
-    },
-    fitSizeId: 'fit-relaxed',
-    fitSize: {
-      id: 'fit-relaxed',
-      name: 'Relaxed Fit',
-      fitCode: 'RLX',
-      displayOrder: 3,
-    },
-    productColorId: 'col-ivory',
-    productColor: {
-      id: 'col-ivory',
-      name: 'Kashmiri Ivory',
-      code: 'IVR',
-    },
-    price: 1599,
-    compareAtPrice: 1899,
-    sku: 'SHRT-RLX-IVR-02',
-    stockQuantity: 4,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 function getStoredVariants(): ProductVariant[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_FALLBACK_VARIANTS));
-      return INITIAL_FALLBACK_VARIANTS;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_FALLBACK_VARIANTS;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return INITIAL_FALLBACK_VARIANTS;
+    return [];
   }
 }
 
@@ -201,29 +103,32 @@ function normalizeVariant(raw: any): ProductVariant {
 
 export const productVariantService = {
   /**
-   * GET /api/v1/product-variants
+   * 4.3 Product Variants (SKU, Stock & Pricing)
+   * GET /api/v1/product-variants?productId=<id>&inStock=true
    */
-  async getAll(productId?: string): Promise<{ data: ProductVariant[]; fromApi: boolean }> {
+  async getAll(
+    productId?: string,
+    inStock?: boolean
+  ): Promise<{ data: ProductVariant[]; fromApi: boolean }> {
     try {
-      const url = productId
-        ? `${API_BASE_URL}/product-variants?productId=${encodeURIComponent(productId)}`
-        : `${API_BASE_URL}/product-variants`;
+      const params = new URLSearchParams();
+      if (productId) params.append('productId', productId);
+      if (inStock !== undefined) params.append('inStock', String(inStock));
 
-      const response = await authFetch(url, {
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const response = await authFetch(`${API_BASE_URL}/product-variants${qs}`, {
         headers: { Accept: 'application/json' },
       });
 
       if (response.ok) {
         const json = await response.json();
-        const rawList = Array.isArray(json) ? json : json?.data || [];
-        if (Array.isArray(rawList)) {
-          const list = rawList.map(normalizeVariant);
-          saveStoredVariants(list);
-          return { data: list, fromApi: true };
-        }
+        const rawList = extractApiDataList(json);
+        const list = rawList.map(normalizeVariant);
+        saveStoredVariants(list);
+        return { data: list, fromApi: true };
       }
     } catch {
-      // Backend offline or booting; fallback to local storage
+      // Backend offline; fallback to cached items
     }
 
     const stored = getStoredVariants();

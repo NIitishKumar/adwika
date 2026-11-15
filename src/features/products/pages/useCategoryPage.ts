@@ -1,6 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { PRODUCTS } from '@/data/products';
 import { Product, CategoryType } from '@/types';
 import { productService } from '@/features/admin/services/product.service';
 import { productSubCategoryService } from '@/features/admin/services/productSubCategory.service';
@@ -54,6 +53,12 @@ export function useCategoryPage({
   const [liveProducts, setLiveProducts] = useState<Product[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const retry = useCallback(() => {
+    setRetryCount((prev) => prev + 1);
+  }, []);
 
   // Synchronously reset sub-category selection if category changed
   if (currentCategoryId !== categoryId) {
@@ -69,7 +74,7 @@ export function useCategoryPage({
       .getByCategoryId(categoryId)
       .then((res) => setSubCategories(res.data || []))
       .catch(() => setSubCategories([]));
-  }, [categoryId]);
+  }, [categoryId, retryCount]);
 
   // 2. Fetch products:
   // When a sub-category is clicked -> GET /api/v1/products/sub-category/:subCategorySlug
@@ -95,6 +100,7 @@ export function useCategoryPage({
       }));
 
     setIsLoading(true);
+    setError(null);
 
     if (selectedSubCategory && selectedSubCategory !== 'ALL') {
       productService
@@ -103,7 +109,13 @@ export function useCategoryPage({
           setLiveProducts(mapProducts(res.data || []));
           setIsLoaded(true);
         })
-        .catch(() => {
+        .catch((err: any) => {
+          console.error('Error fetching products by subcategory:', err);
+          setError(
+            err?.response?.data?.message ||
+            err?.message ||
+            'Unable to connect to collection archive.'
+          );
           setLiveProducts([]);
           setIsLoaded(true);
         })
@@ -115,23 +127,22 @@ export function useCategoryPage({
           setLiveProducts(mapProducts(res.data || []));
           setIsLoaded(true);
         })
-        .catch(() => {
+        .catch((err: any) => {
+          console.error('Error fetching category products:', err);
+          setError(
+            err?.response?.data?.message ||
+            err?.message ||
+            'Unable to connect to collection archive.'
+          );
           setLiveProducts([]);
           setIsLoaded(true);
         })
         .finally(() => setIsLoading(false));
     }
-  }, [categoryId, selectedSubCategory, activeCategory]);
+  }, [categoryId, selectedSubCategory, activeCategory, retryCount]);
 
   const categoryProducts = useMemo(() => {
-    let list = isLoaded
-      ? liveProducts
-      : PRODUCTS.filter((p) => {
-          if (activeCategory === 'ALL') return true;
-          const pCat = p.category?.toString().toUpperCase();
-          const targetCat = activeCategory.toString().toUpperCase();
-          return pCat === targetCat || pCat.includes(targetCat) || targetCat.includes(pCat);
-        });
+    let list = liveProducts;
 
     if (selectedFabric !== 'ALL') {
       list = list.filter((p) => p.fabric?.toLowerCase().includes(selectedFabric.toLowerCase()));
@@ -144,7 +155,7 @@ export function useCategoryPage({
     }
 
     return list;
-  }, [activeCategory, isLoaded, liveProducts, selectedFabric, sortBy]);
+  }, [liveProducts, selectedFabric, sortBy]);
 
   const resetFilters = () => {
     setSelectedSubCategory('ALL');
@@ -165,6 +176,8 @@ export function useCategoryPage({
     setSortBy,
     categoryProducts,
     isLoading,
+    error,
+    retry,
     resetFilters,
   };
 }

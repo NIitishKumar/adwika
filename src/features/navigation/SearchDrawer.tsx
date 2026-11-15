@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Modal } from '@/components/ui';
-import { PRODUCTS } from '@/data/products';
 import { Product, CurrencyConfig } from '@/types';
-import { Search, ArrowRight } from 'lucide-react';
+import { Search, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
 import { productService } from '@/features/admin/services/product.service';
 
 interface SearchDrawerProps {
@@ -20,37 +19,54 @@ export const SearchDrawer: React.FC<SearchDrawerProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const performSearch = useCallback(async (query: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await productService.getAll({
+        search: query.trim() || undefined,
+        status: 'ACTIVE',
+      });
+      if (res.data && res.data.length > 0) {
+        const mapped: Product[] = res.data.map((p) => ({
+          id: p.slug || p.id,
+          name: p.name,
+          subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
+          category: (p.category?.title?.toUpperCase() || 'KURTIS') as any,
+          priceINR: p.basePrice || 0,
+          priceUSD: Math.round((p.basePrice || 0) / 85),
+          image: p.imageUrl || '/images/default.jpg',
+          description: p.description || p.shortDescription || '',
+          craftDetails: [`Fit: ${p.fit}`],
+          fabric: p.fit || 'Mulberry Silk',
+          sizes: ['XS', 'S', 'M', 'L', 'XL'],
+        }));
+        setLiveProducts(mapped);
+      } else {
+        setLiveProducts([]);
+      }
+    } catch (err: any) {
+      console.error('Search API error:', err);
+      setError(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Unable to reach atelier search service.'
+      );
+      setLiveProducts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
-    let mounted = true;
-    productService
-      .getAll({ search: searchTerm.trim() || undefined, status: 'ACTIVE' })
-      .then((res) => {
-        if (mounted && res.data && res.data.length > 0) {
-          const mapped: Product[] = res.data.map((p) => ({
-            id: p.slug || p.id,
-            name: p.name,
-            subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
-            category: (p.category?.title?.toUpperCase() || 'KURTIS') as any,
-            priceINR: p.basePrice || 0,
-            priceUSD: Math.round((p.basePrice || 0) / 85),
-            image: p.imageUrl || '/images/default.jpg',
-            description: p.description || p.shortDescription || '',
-            craftDetails: [`Fit: ${p.fit}`],
-            fabric: p.fit || 'Mulberry Silk',
-            sizes: ['XS', 'S', 'M', 'L', 'XL'],
-          }));
-          setLiveProducts(mapped);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, [isOpen, searchTerm]);
+    performSearch(searchTerm);
+  }, [isOpen, searchTerm, performSearch]);
 
-  const sourceProducts = liveProducts.length > 0 ? liveProducts : PRODUCTS;
+  const sourceProducts = liveProducts;
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return sourceProducts.slice(0, 4);
@@ -114,11 +130,30 @@ export const SearchDrawer: React.FC<SearchDrawerProps> = ({
 
         {/* Results List */}
         <div className="flex-1 overflow-y-auto flex flex-col gap-4">
-          <p className="text-[10px] tracking-widest uppercase text-neutral-500">
-            {searchTerm ? `Results (${filteredProducts.length})` : 'Curated Highlights'}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] tracking-widest uppercase text-neutral-500">
+              {searchTerm ? `Results (${filteredProducts.length})` : 'Curated Highlights'}
+            </p>
+            {isLoading && (
+              <RefreshCw size={12} className="animate-spin text-[#c9a87c]" />
+            )}
+          </div>
 
-          {filteredProducts.length === 0 ? (
+          {error && (
+            <div className="p-4 bg-[#181412] border border-[#382b22] text-center flex flex-col items-center gap-2 rounded">
+              <AlertCircle size={16} className="text-amber-400" />
+              <p className="text-xs text-neutral-300 font-sans">{error}</p>
+              <button
+                type="button"
+                onClick={() => performSearch(searchTerm)}
+                className="text-[10px] uppercase font-mono tracking-wider text-[#c9a87c] hover:underline"
+              >
+                Retry Search
+              </button>
+            </div>
+          )}
+
+          {!isLoading && !error && filteredProducts.length === 0 ? (
             <div className="text-center py-12 text-neutral-500 text-xs">
               No heirlooms found matching &ldquo;{searchTerm}&rdquo;. Try another term.
             </div>

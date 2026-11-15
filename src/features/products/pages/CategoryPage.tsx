@@ -3,6 +3,7 @@ import { ProductCard } from '../ProductCard';
 import { Product, CurrencyConfig, CategoryType } from '@/types';
 import { SlidersHorizontal } from 'lucide-react';
 import { useCategoryPage, CategorySortOption } from './useCategoryPage';
+import { ApiErrorFallback } from '@/components/common/ApiErrorFallback';
 
 interface CategoryPageProps {
   category?: CategoryType;
@@ -35,6 +36,8 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     setSortBy,
     categoryProducts,
     isLoading,
+    error,
+    retry,
     resetFilters,
   } = useCategoryPage({ category, title, subtitle, heroImage });
 
@@ -153,6 +156,13 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
             <div className="w-6 h-6 border-2 border-adwika-sand border-t-transparent rounded-full animate-spin" />
             <span className="font-serif text-xs tracking-widest uppercase text-neutral-400">Loading heirlooms...</span>
           </div>
+        ) : error ? (
+          <ApiErrorFallback
+            title="Collection Archive Disrupted"
+            message={error}
+            onRetry={retry}
+            retryLabel="Retry Loading Collection"
+          />
         ) : categoryProducts.length === 0 ? (
           <div className="text-center py-20 text-neutral-500">
             <p className="font-serif text-lg text-neutral-300">No heirlooms found with this filter</p>

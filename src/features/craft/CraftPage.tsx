@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { PRODUCTS } from '@/data/products';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ProductCard } from '@/features/products';
 import { CurrencyConfig, Product } from '@/types';
 import { Sparkles, Compass, Feather } from 'lucide-react';
 import { productService } from '@/features/admin/services/product.service';
+import { ApiErrorFallback } from '@/components/common/ApiErrorFallback';
 
 interface CraftPageProps {
   currency: CurrencyConfig;
@@ -15,42 +15,50 @@ export const CraftPage: React.FC<CraftPageProps> = ({
   onQuickView,
 }) => {
   const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
-    const loadCraftProducts = async () => {
-      try {
-        const res = await productService.getAll({ status: 'ACTIVE' });
-        if (mounted && res.data && res.data.length > 0) {
-          const mapped: Product[] = res.data.map((p) => ({
-            id: p.slug || p.id,
-            name: p.name,
-            subtitle: p.shortDescription || p.category?.title || 'Craft & Detail Archive',
-            category: 'CRAFT & DETAIL',
-            priceINR: p.basePrice || 0,
-            priceUSD: Math.round((p.basePrice || 0) / 85),
-            image: p.imageUrl || '/images/default.jpg',
-            description: p.description || p.shortDescription || '',
-            craftDetails: [`Silhouette Fit: ${p.fit}`],
-            fabric: p.fit || 'Mulberry Silk & Chanderi',
-            sizes: ['XS', 'S', 'M', 'L', 'XL'],
-          }));
-          setLiveProducts(mapped);
-        }
-      } catch {
-        // Fallback to static data
+  const loadCraftProducts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await productService.getAll({ status: 'ACTIVE' });
+      if (res.data && res.data.length > 0) {
+        const mapped: Product[] = res.data.map((p) => ({
+          id: p.slug || p.id,
+          name: p.name,
+          subtitle: p.shortDescription || p.category?.title || 'Craft & Detail Archive',
+          category: 'CRAFT & DETAIL',
+          priceINR: p.basePrice || 0,
+          priceUSD: Math.round((p.basePrice || 0) / 85),
+          image: p.imageUrl || '/images/default.jpg',
+          description: p.description || p.shortDescription || '',
+          craftDetails: [`Silhouette Fit: ${p.fit}`],
+          fabric: p.fit || 'Mulberry Silk & Chanderi',
+          sizes: ['XS', 'S', 'M', 'L', 'XL'],
+        }));
+        setLiveProducts(mapped);
+      } else {
+        setLiveProducts([]);
       }
-    };
-    loadCraftProducts();
-    return () => {
-      mounted = false;
-    };
+    } catch (err: any) {
+      console.error('Failed to load craft products:', err);
+      setError(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Unable to connect to craft archive database.'
+      );
+      setLiveProducts([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const craftProducts =
-    liveProducts.length > 0
-      ? liveProducts
-      : PRODUCTS.filter((p) => p.category === 'CRAFT & DETAIL');
+  useEffect(() => {
+    loadCraftProducts();
+  }, [loadCraftProducts]);
+
+  const craftProducts = liveProducts;
 
   return (
     <div className="pt-24 min-h-screen bg-[#080809] text-neutral-100">
@@ -114,16 +122,46 @@ export const CraftPage: React.FC<CraftPageProps> = ({
           Limited editions crafted in batches of no more than twelve pieces.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {craftProducts.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              currency={currency}
-              onQuickView={onQuickView}
-            />
-          ))}
-        </div>
+        {/* Error Fallback */}
+        {error && (
+          <ApiErrorFallback
+            compact
+            title="Craft Archive Unavailable"
+            message={error}
+            onRetry={loadCraftProducts}
+            className="my-8"
+          />
+        )}
+
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-20 text-neutral-400 gap-3">
+            <div className="w-6 h-6 border-2 border-adwika-sand border-t-transparent rounded-full animate-spin" />
+            <span className="font-serif text-xs tracking-widest uppercase">
+              Loading craft archive pieces...
+            </span>
+          </div>
+        )}
+
+        {/* Products Grid */}
+        {!isLoading && !error && (
+          craftProducts.length === 0 ? (
+            <div className="text-center py-16 text-neutral-400 font-serif">
+              <p className="text-base text-neutral-300">No craft archive pieces currently listed.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {craftProducts.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  currency={currency}
+                  onQuickView={onQuickView}
+                />
+              ))}
+            </div>
+          )
+        )}
       </div>
     </div>
   );

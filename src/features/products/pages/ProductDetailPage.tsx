@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PRODUCTS } from '@/data/products';
 import { CurrencyConfig, CartItem, Product } from '@/types';
 import { Button } from '@/components/ui';
 import { ProductCard } from '../ProductCard';
@@ -9,6 +8,7 @@ import { productService } from '@/features/admin/services/product.service';
 import { productImageService } from '@/features/admin/services/productImage.service';
 import { productVariantService } from '@/features/admin/services/productVariant.service';
 import { ProductVariant } from '@/features/admin/types/productVariant.types';
+import { ApiErrorFallback } from '@/components/common/ApiErrorFallback';
 
 interface ProductDetailPageProps {
   currency: CurrencyConfig;
@@ -24,9 +24,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [product, setProduct] = useState<Product>(() => {
-    return PRODUCTS.find((p) => p.id === id) || PRODUCTS[0];
-  });
+  const [product, setProduct] = useState<Product | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState<string>('');
   const [liveRelated, setLiveRelated] = useState<Product[]>([]);
@@ -39,113 +39,126 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>('craft');
 
-  useEffect(() => {
-    let mounted = true;
-    const fetchProduct = async () => {
-      if (!id) return;
-      setIsLoading(true);
+  const fetchProduct = useCallback(async () => {
+    if (!id) return;
+    setIsLoading(true);
+    setIsRetrying(true);
+    setError(null);
+    try {
+      const res = await productService.getById(id);
+      if (!res.data) {
+        throw new Error('Garment details not found in database.');
+      }
+
+      const p = res.data;
+      let images: string[] = p.imageUrl ? [p.imageUrl] : [];
+
+      // 1. Fetch gallery images
       try {
-        const res = await productService.getById(id);
-        if (mounted && res.data) {
-          const p = res.data;
-          let images: string[] = p.imageUrl ? [p.imageUrl] : [];
-
-          // 1. Fetch gallery images
-          try {
-            const galleryRes = await productImageService.getByProductId(p.id || id);
-            if (galleryRes.data && galleryRes.data.length > 0) {
-              const apiUrls = galleryRes.data.map((img) => img.imageUrl).filter(Boolean);
-              if (apiUrls.length > 0) {
-                images = Array.from(new Set([...images, ...apiUrls]));
-              }
-            }
-          } catch {
-            // Optional gallery fetch
+        const galleryRes = await productImageService.getByProductId(p.id || id);
+        if (galleryRes.data && galleryRes.data.length > 0) {
+          const apiUrls = galleryRes.data.map((img) => img.imageUrl).filter(Boolean);
+          if (apiUrls.length > 0) {
+            images = Array.from(new Set([...images, ...apiUrls]));
           }
-
-          // 2. Fetch product variants from API: GET /api/v1/product-variants?productId=:id
-          const targetProductId = p.id || p.productId || p.uniqueId || id;
-          setIsLoadingVariants(true);
-          try {
-            const variantRes = await productVariantService.getAll(targetProductId);
-            if (mounted && variantRes.data && variantRes.data.length > 0) {
-              setVariants(variantRes.data);
-
-              // Auto-select initial variant's color and size
-              const firstActive = variantRes.data.find((v) => v.isActive) || variantRes.data[0];
-              if (firstActive) {
-                const colId = firstActive.productColorId || firstActive.productColor?.id;
-                if (colId) setSelectedColorId(colId);
-                const sz = firstActive.fitSize?.fitCode || firstActive.fitSize?.name;
-                if (sz) setSelectedSize(sz);
-              }
-            }
-          } catch (err) {
-            console.error('Failed to fetch product variants:', err);
-          } finally {
-            if (mounted) setIsLoadingVariants(false);
-          }
-
-          const primaryImg = images[0] || p.imageUrl || '/images/default-garment.jpg';
-          setGalleryImages(images);
-          setActiveImage(primaryImg);
-
-          setProduct({
-            id: p.slug || p.id,
-            name: p.name,
-            subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
-            category: (p.category?.title?.toUpperCase() || 'KURTIS') as any,
-            priceINR: p.basePrice || 0,
-            priceUSD: Math.round((p.basePrice || 0) / 85),
-            image: primaryImg,
-            secondaryImage: images[1] || primaryImg,
-            description: p.description || p.shortDescription || '',
-            craftDetails: [
-              `Fit: ${p.fit}`,
-              p.subCategory?.name ? `Collection: ${p.subCategory.name}` : 'Handcrafted Luxury',
-              p.category?.title ? `Master Category: ${p.category.title}` : 'Pure Mulberry Silk',
-            ],
-            fabric: p.fit || 'Mulberry Silk & Chanderi',
-            sizes: ['XS', 'S', 'M', 'L', 'XL'],
-          });
-        }
-
-        try {
-          const relatedRes = await productService.getAll({ status: 'ACTIVE' });
-          if (mounted && relatedRes.data && relatedRes.data.length > 0) {
-            const mappedRelated: Product[] = relatedRes.data
-              .filter((item) => (item.slug || item.id) !== id && item.id !== id)
-              .slice(0, 3)
-              .map((rp) => ({
-                id: rp.slug || rp.id,
-                name: rp.name,
-                subtitle: rp.shortDescription || rp.category?.title || 'Heirloom Piece',
-                category: (rp.category?.title?.toUpperCase() || 'KURTIS') as any,
-                priceINR: rp.basePrice || 0,
-                priceUSD: Math.round((rp.basePrice || 0) / 85),
-                image: rp.imageUrl || '/images/default.jpg',
-                description: rp.description || rp.shortDescription || '',
-                craftDetails: [`Fit: ${rp.fit}`],
-                fabric: rp.fit || 'Mulberry Silk',
-                sizes: ['XS', 'S', 'M', 'L', 'XL'],
-              }));
-            setLiveRelated(mappedRelated);
-          }
-        } catch {
-          // Ignore related products error
         }
       } catch {
-        // Fallback to local mock products
-      } finally {
-        if (mounted) setIsLoading(false);
+        // Optional gallery fetch
       }
-    };
 
-    fetchProduct();
-    return () => {
-      mounted = false;
-    };
+      // 2. Fetch product variants from API: GET /api/v1/product-variants?productId=:id
+      const targetProductId = p.id || p.productId || p.uniqueId || id;
+      setIsLoadingVariants(true);
+      try {
+        const variantRes = await productVariantService.getAll(targetProductId);
+        if (variantRes.data && variantRes.data.length > 0) {
+          setVariants(variantRes.data);
+
+          // Auto-select initial variant's color and size
+          const firstActive = variantRes.data.find((v) => v.isActive) || variantRes.data[0];
+          if (firstActive) {
+            const colId = firstActive.productColorId || firstActive.productColor?.id;
+            if (colId) setSelectedColorId(colId);
+            const sz = firstActive.fitSize?.fitCode || firstActive.fitSize?.name;
+            if (sz) setSelectedSize(sz);
+          }
+        } else {
+          setVariants([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch product variants:', err);
+        setVariants([]);
+      } finally {
+        setIsLoadingVariants(false);
+      }
+
+      const primaryImg = images[0] || p.imageUrl || '/images/default-garment.jpg';
+      setGalleryImages(images);
+      setActiveImage(primaryImg);
+
+      setProduct({
+        id: p.slug || p.id,
+        name: p.name,
+        subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
+        category: (p.category?.title?.toUpperCase() || 'KURTIS') as any,
+        priceINR: p.basePrice || 0,
+        priceUSD: Math.round((p.basePrice || 0) / 85),
+        image: primaryImg,
+        secondaryImage: images[1] || primaryImg,
+        description: p.description || p.shortDescription || '',
+        craftDetails: [
+          `Fit: ${p.fit}`,
+          p.subCategory?.name ? `Collection: ${p.subCategory.name}` : 'Handcrafted Luxury',
+          p.category?.title ? `Master Category: ${p.category.title}` : 'Pure Mulberry Silk',
+        ],
+        fabric: p.fit || 'Mulberry Silk & Chanderi',
+        sizes: ['XS', 'S', 'M', 'L', 'XL'],
+      });
+
+      // 3. Fetch live related products
+      try {
+        const relatedRes = await productService.getAll({ status: 'ACTIVE' });
+        if (relatedRes.data && relatedRes.data.length > 0) {
+          const mappedRelated: Product[] = relatedRes.data
+            .filter((item) => (item.slug || item.id) !== id && item.id !== id)
+            .slice(0, 3)
+            .map((rp) => ({
+              id: rp.slug || rp.id,
+              name: rp.name,
+              subtitle: rp.shortDescription || rp.category?.title || 'Heirloom Piece',
+              category: (rp.category?.title?.toUpperCase() || 'KURTIS') as any,
+              priceINR: rp.basePrice || 0,
+              priceUSD: Math.round((rp.basePrice || 0) / 85),
+              image: rp.imageUrl || '/images/default.jpg',
+              description: rp.description || rp.shortDescription || '',
+              craftDetails: [`Fit: ${rp.fit}`],
+              fabric: rp.fit || 'Mulberry Silk',
+              sizes: ['XS', 'S', 'M', 'L', 'XL'],
+            }));
+          setLiveRelated(mappedRelated);
+        } else {
+          setLiveRelated([]);
+        }
+      } catch {
+        setLiveRelated([]);
+      }
+    } catch (err: any) {
+      console.error('Error fetching product:', err);
+      setError(
+        err?.response?.data?.message ||
+        err?.message ||
+        'We were unable to locate this garment in the archive. The piece may have been removed or the connection failed.'
+      );
+      setProduct(null);
+    } finally {
+      setIsLoading(false);
+      setIsRetrying(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
 
   // Derived unique colors from variants API
   const availableColors = useMemo(() => {
@@ -166,7 +179,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   // Derived available fit sizes strictly for the currently selected colorway
   const availableSizes = useMemo(() => {
     if (variants.length === 0) {
-      return product.sizes || ['XS', 'S', 'M', 'L', 'XL'];
+      return product?.sizes || ['XS', 'S', 'M', 'L', 'XL'];
     }
 
     // Filter variants that belong strictly to the currently selected color
@@ -199,7 +212,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     }
 
     return ['XS', 'S', 'M', 'L', 'XL'];
-  }, [variants, selectedColorId, product.sizes]);
+  }, [variants, selectedColorId, product?.sizes]);
 
   // Active variant matching selected color & size
   const activeVariant = useMemo(() => {
@@ -274,7 +287,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
 
   // Pricing & Stock resolved dynamically from selected variant or base product
-  const currentPriceINR = activeVariant?.price != null ? activeVariant.price : product.priceINR;
+  const currentPriceINR = activeVariant?.price != null ? activeVariant.price : (product?.priceINR ?? 0);
   const compareAtPriceINR = activeVariant?.compareAtPrice;
   const isOutOfStock = activeVariant ? activeVariant.stockQuantity <= 0 : false;
 
@@ -287,6 +300,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
 
   const handleAdd = () => {
+    if (!product) return;
     const itemProduct: Product = {
       ...product,
       priceINR: currentPriceINR,
@@ -297,7 +311,40 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     setTimeout(() => setAddedSuccess(false), 1500);
   };
 
-  const related = liveRelated.length > 0 ? liveRelated : PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3);
+  const related = liveRelated;
+
+  // Fallback UI when initial product is loading
+  if (isLoading && !product) {
+    return (
+      <div className="pt-24 min-h-screen bg-[#080809] flex flex-col items-center justify-center text-center px-6">
+        <div className="w-8 h-8 border-2 border-adwika-sand border-t-transparent rounded-full animate-spin mb-4" />
+        <span className="font-serif text-xs uppercase tracking-widest text-neutral-400">
+          Accessing Atelier Garment Archive...
+        </span>
+      </div>
+    );
+  }
+
+  // Fallback UI if API breaks or product not found
+  if (error || !product) {
+    return (
+      <div className="pt-24 min-h-screen bg-[#080809] text-neutral-100 flex items-center justify-center">
+        <div className="max-w-xl mx-auto px-6 py-16 w-full">
+          <ApiErrorFallback
+            title="Garment Unavailable"
+            message={
+              error ||
+              'The requested heirloom piece could not be located in our active database or the server connection failed.'
+            }
+            onRetry={fetchProduct}
+            onBack={() => navigate(-1)}
+            backLabel="Return to Collection"
+            isRetrying={isRetrying}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-24 min-h-screen bg-[#080809] text-neutral-100">
@@ -586,21 +633,23 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         </div>
 
         {/* Related Pieces */}
-        <div className="mt-28 pt-16 border-t border-neutral-900">
-          <h2 className="font-serif text-2xl md:text-3xl uppercase tracking-wider text-neutral-100 mb-8">
-            Complements & Companion Pieces
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            {related.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                currency={currency}
-                onQuickView={onQuickView}
-              />
-            ))}
+        {related.length > 0 && (
+          <div className="mt-28 pt-16 border-t border-neutral-900">
+            <h2 className="font-serif text-2xl md:text-3xl uppercase tracking-wider text-neutral-100 mb-8">
+              Complements & Companion Pieces
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+              {related.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  currency={currency}
+                  onQuickView={onQuickView}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ import type { AuthUser } from '@/features/auth';
 import { CartDrawer } from '@/features/cart';
 import { AdminRoutes, GlobalToastContainer } from '@/features/admin';
 import { Product, CartItem, RegionOption } from '@/types';
-import { REGIONS, CURRENCY_RATES, PRODUCTS } from '@/data/products';
+import { REGIONS, CURRENCY_RATES } from '@/data/products';
 import { getCurrentUser, clearAuthSession, isLoggedIn } from '@/config/auth.config';
 
 const AppContent: React.FC = () => {
@@ -23,14 +23,8 @@ const AppContent: React.FC = () => {
   // Regional & Currency State (Default INR)
   const [currentRegion] = useState<RegionOption>(REGIONS[0]);
 
-  // Cart State
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      product: PRODUCTS[0],
-      size: 'M',
-      quantity: 1,
-    },
-  ]);
+  // Cart State (Initialized empty without mock items)
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   // Auth State — hydrate from sessionStorage on mount
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getCurrentUser());

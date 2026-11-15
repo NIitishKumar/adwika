@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ProductCard } from '@/features/products';
-import { PRODUCTS } from '@/data/products';
 import { Product, CurrencyConfig, CategoryType } from '@/types';
 import { Filter } from 'lucide-react';
 import { productService } from '@/features/admin/services/product.service';
 import { useCategoryStore } from '@/stores';
+import { ApiErrorFallback } from '@/components/common/ApiErrorFallback';
 
 interface CollectionShowcaseProps {
   selectedCategory: CategoryType;
@@ -36,6 +36,8 @@ export const CollectionShowcase: React.FC<CollectionShowcaseProps> = ({
 }) => {
   const [filterMode, setFilterMode] = useState<CategoryType>(selectedCategory);
   const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const storeCategories = useCategoryStore((state) => state.categories);
 
   const categoryTabs = useMemo<CategoryTab[]>(() => {
@@ -52,38 +54,49 @@ export const CollectionShowcase: React.FC<CollectionShowcaseProps> = ({
     ];
   }, [storeCategories]);
 
-  useEffect(() => {
-    let mounted = true;
-    productService
-      .getAll({ status: 'ACTIVE' })
-      .then((res) => {
-        if (mounted && res.data && res.data.length > 0) {
-          const mapped: Product[] = res.data.map((p) => ({
-            id: p.slug || p.id,
-            name: p.name,
-            subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
-            category: (p.category?.title?.toUpperCase() || 'KURTIS') as CategoryType,
-            priceINR: p.basePrice || 0,
-            priceUSD: Math.round((p.basePrice || 0) / 85),
-            image: p.imageUrl || '/images/default.jpg',
-            description: p.description || p.shortDescription || '',
-            craftDetails: [`Fit: ${p.fit}`],
-            fabric: p.fit || 'Mulberry Silk & Chanderi',
-            sizes: ['XS', 'S', 'M', 'L', 'XL'],
-            categoryId: p.categoryId || p.category?.id,
-            subCategoryId: p.subCategoryId || p.subCategory?.id,
-          }));
-          setLiveProducts(mapped);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      mounted = false;
-    };
+  const loadProducts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await productService.getAll({ status: 'ACTIVE' });
+      if (res.data && res.data.length > 0) {
+        const mapped: Product[] = res.data.map((p) => ({
+          id: p.slug || p.id,
+          name: p.name,
+          subtitle: p.shortDescription || p.category?.title || 'Heirloom Garment',
+          category: (p.category?.title?.toUpperCase() || 'KURTIS') as CategoryType,
+          priceINR: p.basePrice || 0,
+          priceUSD: Math.round((p.basePrice || 0) / 85),
+          image: p.imageUrl || '/images/default.jpg',
+          description: p.description || p.shortDescription || '',
+          craftDetails: [`Fit: ${p.fit}`],
+          fabric: p.fit || 'Mulberry Silk & Chanderi',
+          sizes: ['XS', 'S', 'M', 'L', 'XL'],
+          categoryId: p.categoryId || p.category?.id,
+          subCategoryId: p.subCategoryId || p.subCategory?.id,
+        }));
+        setLiveProducts(mapped);
+      } else {
+        setLiveProducts([]);
+      }
+    } catch (err: any) {
+      console.error('Error fetching showcase collection:', err);
+      setError(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Unable to connect to collection archive.'
+      );
+      setLiveProducts([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const sourceProducts = liveProducts.length > 0 ? liveProducts : PRODUCTS;
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  const sourceProducts = liveProducts;
 
   const filteredProducts = useMemo(() => {
     if (filterMode === 'ALL') return sourceProducts;
@@ -154,17 +167,55 @@ export const CollectionShowcase: React.FC<CollectionShowcaseProps> = ({
           </div>
         </div>
 
+        {/* Error Fallback */}
+        {error && (
+          <ApiErrorFallback
+            compact
+            title="Collection Archive Disrupted"
+            message={error}
+            onRetry={loadProducts}
+            className="my-8"
+          />
+        )}
+
+        {/* Loading Skeleton */}
+        {isLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex flex-col gap-3 animate-pulse">
+                <div className="aspect-[3/4] bg-neutral-900 border border-neutral-800" />
+                <div className="h-4 bg-neutral-900 w-3/4" />
+                <div className="h-3 bg-neutral-900 w-1/2" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Garment Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {filteredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              currency={currency}
-              onQuickView={onQuickView}
-            />
-          ))}
-        </div>
+        {!isLoading && !error && (
+          filteredProducts.length === 0 ? (
+            <div className="text-center py-16 text-neutral-500 font-serif">
+              <p className="text-base text-neutral-400">No heirlooms currently in this category.</p>
+              <button
+                onClick={() => setFilterMode('ALL')}
+                className="mt-3 text-xs uppercase tracking-wider text-adwika-sand underline cursor-pointer"
+              >
+                View All Pieces
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  currency={currency}
+                  onQuickView={onQuickView}
+                />
+              ))}
+            </div>
+          )
+        )}
       </div>
     </section>
   );

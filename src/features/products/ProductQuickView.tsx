@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button } from '@/components/ui';
 import { Product, CurrencyConfig, CartItem } from '@/types';
-import { Sparkles, Check, Heart } from 'lucide-react';
+import { Sparkles, Check, Heart, Loader2 } from 'lucide-react';
 import { productVariantService } from '@/features/admin/services/productVariant.service';
 import { ProductVariant } from '@/features/admin/types/productVariant.types';
+import { useCartStore } from '@/stores';
+import { isLoggedIn } from '@/config/auth.config';
+import { showToast } from '@/config/toast.config';
 
 interface ProductQuickViewProps {
   product: Product | null;
   isOpen: boolean;
   onClose: () => void;
   currency: CurrencyConfig;
-  onAddToCart: (product: Product, size: CartItem['size']) => void;
+  onAddToCart?: (product: Product, size: CartItem['size'], variantId?: string) => void;
 }
 
 export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
@@ -25,6 +28,9 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
   const [selectedColorId, setSelectedColorId] = useState<string>('');
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+
+  const addItemToCart = useCartStore((state) => state.addItem);
 
   useEffect(() => {
     let mounted = true;
@@ -200,18 +206,42 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
     return `${currency.symbol}${converted.toLocaleString()}`;
   };
 
-  const handleAdd = () => {
-    const itemProduct: Product = {
-      ...product,
-      priceINR: currentPrice,
-      priceUSD: Math.round(currentPrice / 85),
-    };
-    onAddToCart(itemProduct, (selectedSize || 'M') as any);
-    setAddedSuccess(true);
-    setTimeout(() => {
-      setAddedSuccess(false);
-      onClose();
-    }, 900);
+  const handleAdd = async () => {
+    if (!product) return;
+
+    if (!isLoggedIn()) {
+      showToast({
+        type: 'info',
+        title: 'Authentication Required',
+        message: 'Please sign in to add pieces to your shopping bag.',
+      });
+      window.dispatchEvent(new CustomEvent('adwika:open-account-modal'));
+      return;
+    }
+
+    const targetVariantId = activeVariant?.id || activeVariant?.uniqueId;
+    if (!targetVariantId) {
+      showToast({
+        type: 'error',
+        title: 'Variant Unavailable',
+        message: 'Please select an available color and size variant.',
+      });
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      const success = await addItemToCart(targetVariantId, 1);
+      if (success) {
+        setAddedSuccess(true);
+        setTimeout(() => {
+          setAddedSuccess(false);
+          onClose();
+        }, 900);
+      }
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
@@ -386,7 +416,8 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
               variant="filled"
               size="lg"
               onClick={handleAdd}
-              disabled={addedSuccess || isOutOfStock}
+              disabled={addedSuccess || isOutOfStock || isAdding}
+              isLoading={isAdding}
               className="w-full flex items-center justify-center gap-2"
             >
               {addedSuccess ? (

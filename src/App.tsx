@@ -12,9 +12,10 @@ import { AccountModal, LoginPage } from '@/features/auth';
 import type { AuthUser } from '@/features/auth';
 import { CartDrawer } from '@/features/cart';
 import { AdminRoutes, GlobalToastContainer } from '@/features/admin';
-import { Product, CartItem, RegionOption } from '@/types';
+import { Product, RegionOption } from '@/types';
 import { REGIONS, CURRENCY_RATES } from '@/data/products';
 import { getCurrentUser, clearAuthSession, isLoggedIn } from '@/config/auth.config';
+import { useCartStore } from '@/stores';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -23,26 +24,58 @@ const AppContent: React.FC = () => {
   // Regional & Currency State (Default INR)
   const [currentRegion] = useState<RegionOption>(REGIONS[0]);
 
-  // Cart State (Initialized empty without mock items)
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-
   // Auth State — hydrate from sessionStorage on mount
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getCurrentUser());
 
-  // Listen for unauthorized 401 events globally to clear user state
+  // Cart Store Integration
+  const isCartOpen = useCartStore((state) => state.isOpen);
+  const openCart = useCartStore((state) => state.openCart);
+  const closeCart = useCartStore((state) => state.closeCart);
+  const cartCount = useCartStore((state) =>
+    state.cart?.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) ?? 0
+  );
+  const fetchCart = useCartStore((state) => state.fetchCart);
+  const resetCart = useCartStore((state) => state.resetCart);
+
+  // Synchronize cart on initial mount if authenticated
+  React.useEffect(() => {
+    if (isLoggedIn()) {
+      fetchCart();
+    }
+  }, [fetchCart]);
+
+  // Listen for unauthorized 401 events globally to clear user & cart state
   React.useEffect(() => {
     const handleUnauthorized = () => {
       setCurrentUser(null);
+      resetCart();
     };
     window.addEventListener('adwika:unauthorized', handleUnauthorized);
     return () => {
       window.removeEventListener('adwika:unauthorized', handleUnauthorized);
+    };
+  }, [resetCart]);
+
+  // Listen for prompt to open account modal (e.g. when guest clicks Add To Bag)
+  React.useEffect(() => {
+    const handleOpenAccount = () => {
+      setIsAccountModalOpen(true);
+    };
+    window.addEventListener('adwika:open-account-modal', handleOpenAccount);
+    return () => {
+      window.removeEventListener('adwika:open-account-modal', handleOpenAccount);
     };
   }, []);
 
   const handleLogout = () => {
     clearAuthSession();
     setCurrentUser(null);
+    resetCart();
+  };
+
+  const handleLoginSuccess = (user: AuthUser) => {
+    setCurrentUser(user);
+    fetchCart();
   };
 
   // QuickView State
@@ -51,48 +84,8 @@ const AppContent: React.FC = () => {
   // Modal Visibility States
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
 
   const activeCurrency = CURRENCY_RATES[currentRegion.currency];
-  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-
-  // Cart Handlers
-  const handleAddToCart = (product: Product, size: CartItem['size']) => {
-    setCartItems((prev) => {
-      const existing = prev.find(
-        (item) => item.product.id === product.id && item.size === size
-      );
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id && item.size === size
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { product, size, quantity: 1 }];
-    });
-    setIsCartOpen(true);
-  };
-
-  const handleUpdateQuantity = (productId: string, size: CartItem['size'], delta: number) => {
-    setCartItems((prev) =>
-      prev
-        .map((item) => {
-          if (item.product.id === productId && item.size === size) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean) as CartItem[]
-    );
-  };
-
-  const handleRemoveItem = (productId: string, size: CartItem['size']) => {
-    setCartItems((prev) =>
-      prev.filter((item) => !(item.product.id === productId && item.size === size))
-    );
-  };
 
   return (
     <div className="min-h-screen bg-adwika-black text-neutral-100 flex flex-col font-sans selection:bg-adwika-sand selection:text-black">
@@ -101,7 +94,7 @@ const AppContent: React.FC = () => {
         <Navbar
           onOpenAccountModal={() => setIsAccountModalOpen(true)}
           onOpenSearchModal={() => setIsSearchModalOpen(true)}
-          onOpenCart={() => setIsCartOpen(true)}
+          onOpenCart={openCart}
           cartCount={cartCount}
         />
       )}
@@ -216,7 +209,7 @@ const AppContent: React.FC = () => {
             element={
               <LoginPage
                 currentUser={currentUser}
-                onLoginSuccess={(user) => setCurrentUser(user)}
+                onLoginSuccess={handleLoginSuccess}
                 onLogout={handleLogout}
               />
             }
@@ -226,7 +219,6 @@ const AppContent: React.FC = () => {
             element={
               <ProductDetailPage
                 currency={activeCurrency}
-                onAddToCart={handleAddToCart}
                 onQuickView={(p) => setQuickViewProduct(p)}
               />
             }
@@ -253,17 +245,15 @@ const AppContent: React.FC = () => {
             isOpen={isAccountModalOpen}
             onClose={() => setIsAccountModalOpen(false)}
             currentUser={currentUser}
-            onLoginSuccess={(user) => setCurrentUser(user)}
+            onLoginSuccess={handleLoginSuccess}
             onLogout={handleLogout}
           />
 
           <CartDrawer
             isOpen={isCartOpen}
-            onClose={() => setIsCartOpen(false)}
-            items={cartItems}
+            onClose={closeCart}
             currency={activeCurrency}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemoveItem={handleRemoveItem}
+            onOpenAccountModal={() => setIsAccountModalOpen(true)}
             onExplore={() => {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
@@ -274,7 +264,6 @@ const AppContent: React.FC = () => {
             isOpen={Boolean(quickViewProduct)}
             onClose={() => setQuickViewProduct(null)}
             currency={activeCurrency}
-            onAddToCart={handleAddToCart}
           />
         </>
       )}

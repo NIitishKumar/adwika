@@ -9,10 +9,13 @@ import { productImageService } from '@/features/admin/services/productImage.serv
 import { productVariantService } from '@/features/admin/services/productVariant.service';
 import { ProductVariant } from '@/features/admin/types/productVariant.types';
 import { ApiErrorFallback } from '@/components/common/ApiErrorFallback';
+import { useCartStore } from '@/stores';
+import { isLoggedIn } from '@/config/auth.config';
+import { showToast } from '@/config/toast.config';
 
 interface ProductDetailPageProps {
   currency: CurrencyConfig;
-  onAddToCart: (product: Product, size: CartItem['size']) => void;
+  onAddToCart?: (product: Product, size: CartItem['size'], variantId?: string) => void;
   onQuickView: (product: Product) => void;
 }
 
@@ -37,7 +40,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [selectedSize, setSelectedSize] = useState<string>('M');
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>('craft');
+
+  const addItemToCart = useCartStore((state) => state.addItem);
 
   const fetchProduct = useCallback(async () => {
     if (!id) return;
@@ -299,16 +305,39 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     return `${currency.symbol}${converted.toLocaleString()}`;
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!product) return;
-    const itemProduct: Product = {
-      ...product,
-      priceINR: currentPriceINR,
-      priceUSD: Math.round(currentPriceINR / 85),
-    };
-    onAddToCart(itemProduct, (selectedSize || 'M') as any);
-    setAddedSuccess(true);
-    setTimeout(() => setAddedSuccess(false), 1500);
+
+    if (!isLoggedIn()) {
+      showToast({
+        type: 'info',
+        title: 'Authentication Required',
+        message: 'Please sign in to add pieces to your shopping bag.',
+      });
+      window.dispatchEvent(new CustomEvent('adwika:open-account-modal'));
+      return;
+    }
+
+    const targetVariantId = activeVariant?.id || activeVariant?.uniqueId;
+    if (!targetVariantId) {
+      showToast({
+        type: 'error',
+        title: 'Variant Unavailable',
+        message: 'Please select an available color and size variant.',
+      });
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      const success = await addItemToCart(targetVariantId, 1);
+      if (success) {
+        setAddedSuccess(true);
+        setTimeout(() => setAddedSuccess(false), 2000);
+      }
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const related = liveRelated;
@@ -553,7 +582,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               variant="filled"
               size="lg"
               onClick={handleAdd}
-              disabled={addedSuccess || isOutOfStock}
+              disabled={addedSuccess || isOutOfStock || isAdding}
+              isLoading={isAdding}
               className="w-full py-4 mb-8 flex items-center justify-center gap-2"
             >
               {addedSuccess ? (

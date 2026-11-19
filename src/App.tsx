@@ -96,6 +96,7 @@ const AppContent: React.FC = () => {
           onOpenSearchModal={() => setIsSearchModalOpen(true)}
           onOpenCart={openCart}
           cartCount={cartCount}
+          isLoggedIn={Boolean(currentUser)}
         />
       )}
 

@@ -3,12 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ShoppingBag, User, Search, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCategoryStore } from '@/stores';
+import { isLoggedIn as checkIsLoggedIn } from '@/config/auth.config';
 
 interface NavbarProps {
   onOpenAccountModal: () => void;
   onOpenSearchModal: () => void;
   onOpenCart: () => void;
   cartCount: number;
+  isLoggedIn?: boolean;
 }
 
 const DEFAULT_NAV_LINKS: { label: string; path: string; badge?: string }[] = [
@@ -26,7 +28,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSearchModal,
   onOpenCart,
   cartCount,
+  isLoggedIn: propIsLoggedIn,
 }) => {
+  const isUserLoggedIn = propIsLoggedIn !== undefined ? propIsLoggedIn : checkIsLoggedIn();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const categories = useCategoryStore((state) => state.categories);
@@ -198,34 +202,38 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden lg:inline">ACCOUNT</span>
           </button>
 
-          {/* Admin Portal */}
-          <button
-            onClick={() => navigate('/admin/fit-sizes')}
-            className="text-neutral-400 hover:text-[#c9a87c] transition-colors p-1 flex items-center gap-1 text-[11px] tracking-luxury uppercase"
-            aria-label="Admin Console"
-            title="Admin Console · Fit Sizes CRUD"
-          >
-            <Shield size={14} className="text-[#c9a87c]" />
-            <span className="hidden xl:inline">ADMIN</span>
-          </button>
+          {/* Admin Portal - Only visible when user is logged in */}
+          {isUserLoggedIn && (
+            <button
+              onClick={() => navigate('/admin/fit-sizes')}
+              className="text-neutral-400 hover:text-[#c9a87c] transition-colors p-1 flex items-center gap-1 text-[11px] tracking-luxury uppercase"
+              aria-label="Admin Console"
+              title="Admin Console · Fit Sizes CRUD"
+            >
+              <Shield size={14} className="text-[#c9a87c]" />
+              <span className="hidden xl:inline">ADMIN</span>
+            </button>
+          )}
 
-          {/* Shopping Bag */}
-          <button
-            onClick={onOpenCart}
-            className="inline-flex items-center gap-2 text-[11px] tracking-luxury uppercase text-neutral-300 hover:text-white transition-colors group"
-            aria-label={`Shopping bag with ${cartCount} items`}
-          >
-            <span className="hidden md:inline">BAG</span>
-            <div className="relative">
-              <ShoppingBag size={14} className="group-hover:text-adwika-sand transition-colors" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-adwika-bindi text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
-                  {cartCount}
-                </span>
-              )}
-            </div>
-            <span className="text-neutral-400 group-hover:text-white">({cartCount})</span>
-          </button>
+          {/* Shopping Bag - Only visible when user is logged in */}
+          {isUserLoggedIn && (
+            <button
+              onClick={onOpenCart}
+              className="inline-flex items-center gap-2 text-[11px] tracking-luxury uppercase text-neutral-300 hover:text-white transition-colors group"
+              aria-label={`Shopping bag with ${cartCount} items`}
+            >
+              <span className="hidden md:inline">BAG</span>
+              <div className="relative">
+                <ShoppingBag size={14} className="group-hover:text-adwika-sand transition-colors" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-adwika-bindi text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
+                    {cartCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-neutral-400 group-hover:text-white">({cartCount})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -267,16 +275,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <User size={14} />
                 <span>Account</span>
               </button>
-              <button
-                onClick={() => {
-                  navigate('/admin/fit-sizes');
-                  setMobileMenuOpen(false);
-                }}
-                className="text-xs tracking-wider uppercase text-[#c9a87c] hover:text-white flex items-center gap-1.5 font-mono"
-              >
-                <Shield size={13} />
-                <span>Admin Console</span>
-              </button>
+              {isUserLoggedIn && (
+                <button
+                  onClick={() => {
+                    navigate('/admin/fit-sizes');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-xs tracking-wider uppercase text-[#c9a87c] hover:text-white flex items-center gap-1.5 font-mono"
+                >
+                  <Shield size={13} />
+                  <span>Admin Console</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

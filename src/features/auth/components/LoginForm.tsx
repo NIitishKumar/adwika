@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
-import { ArrowRight, Mail, CheckCircle2, RotateCcw, AlertCircle, Bell, Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  ArrowRight,
+  Mail,
+  CheckCircle2,
+  RotateCcw,
+  AlertCircle,
+  Bell,
+  Trash2,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  Plus,
+} from 'lucide-react';
 import { validateWithZod } from '@/lib/validation/zod-formik';
 import {
   emailLoginSchema,
@@ -12,6 +25,15 @@ import { authService } from '../services/auth.service';
 import { AuthUser } from '../types/auth.types';
 import { saveAuthSession } from '@/config/auth.config';
 import { stockNotificationApi, StockNotification } from '@/services/stockNotification';
+import {
+  addressService,
+  UserAddress,
+  AddressCard,
+  AddressForm,
+  CreateAddressDto,
+  UpdateAddressDto,
+} from '@/features/address';
+import { showToast } from '@/config/toast.config';
 
 interface LoginFormProps {
   onSuccess: (user: AuthUser) => void;
@@ -40,6 +62,107 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [isLoadingSubs, setIsLoadingSubs] = useState<boolean>(false);
   const [showSubscriptions, setShowSubscriptions] = useState<boolean>(false);
   const [unsubscribingId, setUnsubscribingId] = useState<string | null>(null);
+
+  // Addresses state for logged-in user
+  const [addresses, setAddresses] = useState<UserAddress[]>([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState<boolean>(false);
+  const [showAddresses, setShowAddresses] = useState<boolean>(false);
+  const [isAddingAddress, setIsAddingAddress] = useState<boolean>(false);
+  const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
+
+  const loadAddresses = async () => {
+    setIsLoadingAddresses(true);
+    try {
+      const list = await addressService.getAddresses();
+      setAddresses(list);
+    } catch (err) {
+      console.error('Failed to load user addresses:', err);
+    } finally {
+      setIsLoadingAddresses(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser && showAddresses) {
+      loadAddresses();
+    }
+  }, [currentUser?.id, showAddresses]);
+
+  const handleCreateAddress = async (dto: CreateAddressDto | UpdateAddressDto) => {
+    try {
+      await addressService.createAddress(dto as CreateAddressDto);
+      showToast({
+        type: 'success',
+        title: 'Address Added',
+        message: 'Delivery address has been saved.',
+      });
+      setIsAddingAddress(false);
+      await loadAddresses();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err?.message || 'Could not add address.',
+      });
+    }
+  };
+
+  const handleUpdateAddress = async (dto: CreateAddressDto | UpdateAddressDto) => {
+    if (!editingAddress) return;
+    try {
+      await addressService.updateAddress(editingAddress.id, dto);
+      showToast({
+        type: 'success',
+        title: 'Address Updated',
+        message: 'Delivery address updated successfully.',
+      });
+      setEditingAddress(null);
+      await loadAddresses();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err?.message || 'Could not update address.',
+      });
+    }
+  };
+
+  const handleDeleteAddress = async (addr: UserAddress) => {
+    if (!window.confirm(`Delete address for ${addr.name}?`)) return;
+    try {
+      await addressService.deleteAddress(addr.id);
+      showToast({
+        type: 'success',
+        title: 'Address Deleted',
+        message: 'The address has been removed.',
+      });
+      await loadAddresses();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err?.message || 'Could not delete address.',
+      });
+    }
+  };
+
+  const handleSetDefaultAddress = async (addr: UserAddress) => {
+    try {
+      await addressService.setDefaultAddress(addr.id);
+      showToast({
+        type: 'success',
+        title: 'Default Address Updated',
+        message: `${addr.name}'s address is now your primary delivery address.`,
+      });
+      await loadAddresses();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err?.message || 'Could not set default address.',
+      });
+    }
+  };
 
   // Fetch subscriptions when user is logged in
   useEffect(() => {
@@ -186,7 +309,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </div>
 
         {/* Restock Alerts Section */}
-        <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-4 text-left mb-6">
+        <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-4 text-left mb-4">
           <button
             type="button"
             onClick={() => setShowSubscriptions(!showSubscriptions)}
@@ -246,6 +369,125 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     </button>
                   </div>
                 ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Delivery Addresses Section */}
+        <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-4 text-left mb-6">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setShowAddresses(!showAddresses)}
+              className="flex-1 flex items-center justify-between text-xs text-neutral-800 font-medium"
+            >
+              <div className="flex items-center gap-2">
+                <MapPin size={13} className="text-[#54382c]" />
+                <span>Delivery Addresses</span>
+                <span className="px-1.5 py-0.2 bg-[#f4ede4] text-[#54382c] rounded text-[10px] font-mono">
+                  {addresses.length}
+                </span>
+              </div>
+              {showAddresses ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+          </div>
+
+          {showAddresses && (
+            <div className="mt-3 pt-3 border-t border-[#e8e4dc] space-y-3">
+              {/* Add New Address Form Modal/Inline */}
+              {isAddingAddress ? (
+                <AddressForm
+                  onSubmit={handleCreateAddress}
+                  onCancel={() => setIsAddingAddress(false)}
+                />
+              ) : editingAddress ? (
+                <AddressForm
+                  initialData={editingAddress}
+                  onSubmit={handleUpdateAddress}
+                  onCancel={() => setEditingAddress(null)}
+                />
+              ) : (
+                <>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingAddress(true)}
+                      className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-[#54382c] hover:underline font-medium"
+                    >
+                      <Plus size={12} />
+                      <span>Add New Address</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                    {isLoadingAddresses ? (
+                      <div className="flex items-center justify-center py-4 text-neutral-400 text-xs gap-2">
+                        <Loader2 size={13} className="animate-spin text-neutral-500" />
+                        <span>Loading addresses...</span>
+                      </div>
+                    ) : addresses.length === 0 ? (
+                      <p className="text-[11px] text-neutral-500 py-2 text-center font-sans">
+                        No delivery addresses saved yet.
+                      </p>
+                    ) : (
+                      addresses.map((addr) => (
+                        <div
+                          key={addr.id}
+                          className="p-3 bg-white border border-[#eae6df] text-xs space-y-1 relative"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-serif font-medium uppercase text-neutral-900">
+                              {addr.name}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {addr.isDefault && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-[#f4ede4] text-[#54382c] rounded">
+                                  Default
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setEditingAddress(addr)}
+                                className="text-neutral-400 hover:text-neutral-700 p-1 text-[10px]"
+                                title="Edit"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAddress(addr)}
+                                className="text-neutral-400 hover:text-red-600 p-1 text-[10px]"
+                                title="Delete"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-neutral-600 text-[11px]">
+                            {addr.addressLine1}
+                            {addr.addressLine2 ? `, ${addr.addressLine2}` : ''}
+                          </p>
+                          <p className="text-neutral-500 text-[11px]">
+                            {addr.city}, {addr.state} - {addr.postalCode}
+                          </p>
+                          <p className="text-neutral-500 text-[10px] font-mono">
+                            +91 {addr.phone}
+                          </p>
+                          {!addr.isDefault && (
+                            <button
+                              type="button"
+                              onClick={() => handleSetDefaultAddress(addr)}
+                              className="text-[10px] text-[#54382c] hover:underline pt-1 block"
+                            >
+                              Set as Default
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}

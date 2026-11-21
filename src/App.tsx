@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Navbar, SearchDrawer } from '@/features/navigation';
 import { HomePage, Footer } from '@/features/home';
 import { CategoryPage } from '@/features/products/pages/CategoryPage';
@@ -10,7 +10,7 @@ import { AboutPage } from '@/features/about/AboutPage';
 import { ProductQuickView } from '@/features/products';
 import { AccountModal, LoginPage } from '@/features/auth';
 import type { AuthUser } from '@/features/auth';
-import { CartDrawer } from '@/features/cart';
+import { CartDrawer, CartPage } from '@/features/cart';
 import { AdminRoutes, GlobalToastContainer } from '@/features/admin';
 import { UnsubscribePage } from '@/features/stock-notifications';
 import { Product, RegionOption } from '@/types';
@@ -19,8 +19,10 @@ import { getCurrentUser, clearAuthSession, isLoggedIn } from '@/config/auth.conf
 import { useCartStore } from '@/stores';
 
 const AppContent: React.FC = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isCartPage = location.pathname === '/cart' || location.pathname === '/bag';
 
   // Regional & Currency State (Default INR)
   const [currentRegion] = useState<RegionOption>(REGIONS[0]);
@@ -30,13 +32,20 @@ const AppContent: React.FC = () => {
 
   // Cart Store Integration
   const isCartOpen = useCartStore((state) => state.isOpen);
-  const openCart = useCartStore((state) => state.openCart);
   const closeCart = useCartStore((state) => state.closeCart);
   const cartCount = useCartStore((state) =>
     state.cart?.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) ?? 0
   );
   const fetchCart = useCartStore((state) => state.fetchCart);
   const resetCart = useCartStore((state) => state.resetCart);
+
+  // Automatically route to /cart when an item is added anywhere in the app
+  React.useEffect(() => {
+    if (isCartOpen && location.pathname !== '/cart' && location.pathname !== '/bag') {
+      closeCart();
+      navigate('/cart');
+    }
+  }, [isCartOpen, location.pathname, closeCart, navigate]);
 
   // Synchronize cart on initial mount if authenticated
   React.useEffect(() => {
@@ -91,11 +100,11 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-adwika-black text-neutral-100 flex flex-col font-sans selection:bg-adwika-sand selection:text-black">
       {/* Top Navigation - shown on storefront */}
-      {!isAdmin && (
+      {!isAdmin && !isCartPage && (
         <Navbar
           onOpenAccountModal={() => setIsAccountModalOpen(true)}
           onOpenSearchModal={() => setIsSearchModalOpen(true)}
-          onOpenCart={openCart}
+          onOpenCart={() => navigate('/cart')}
           cartCount={cartCount}
           isLoggedIn={Boolean(currentUser)}
         />
@@ -225,6 +234,16 @@ const AppContent: React.FC = () => {
               />
             }
           />
+          <Route
+            path="/cart"
+            element={
+              <CartPage
+                currency={activeCurrency}
+                onOpenAccountModal={() => setIsAccountModalOpen(true)}
+              />
+            }
+          />
+          <Route path="/bag" element={<Navigate to="/cart" replace />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -232,7 +251,7 @@ const AppContent: React.FC = () => {
       </main>
 
       {/* Luxury Footer - shown on storefront */}
-      {!isAdmin && <Footer />}
+      {!isAdmin && !isCartPage && <Footer />}
 
       {/* Storefront Interactive Modals and Drawers */}
       {!isAdmin && (
@@ -252,15 +271,17 @@ const AppContent: React.FC = () => {
             onLogout={handleLogout}
           />
 
-          <CartDrawer
-            isOpen={isCartOpen}
-            onClose={closeCart}
-            currency={activeCurrency}
-            onOpenAccountModal={() => setIsAccountModalOpen(true)}
-            onExplore={() => {
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
+          {!isCartPage && (
+            <CartDrawer
+              isOpen={isCartOpen}
+              onClose={closeCart}
+              currency={activeCurrency}
+              onOpenAccountModal={() => setIsAccountModalOpen(true)}
+              onExplore={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          )}
 
           <ProductQuickView
             product={quickViewProduct}

@@ -7,7 +7,7 @@ export interface ModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
-  variant?: 'modal' | 'drawer-right';
+  variant?: 'modal' | 'drawer-right' | 'fullscreen';
   className?: string;
   maxWidth?: string;
 }
@@ -38,6 +38,20 @@ export const Modal: React.FC<ModalProps> = ({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  if (variant === 'fullscreen') {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-[#0a0a0c] text-neutral-100 overflow-hidden animate-fadeIn">
+        <div
+          role="dialog"
+          aria-modal="true"
+          className={cn('relative w-full h-full flex flex-col overflow-hidden', className)}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   if (variant === 'drawer-right') {
     return (

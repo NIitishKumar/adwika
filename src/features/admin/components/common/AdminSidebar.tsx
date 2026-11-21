@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
+  Package,
   Scissors,
   Palette,
   Layers,
@@ -33,6 +34,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) =
       label: 'Dashboard',
       icon: LayoutDashboard,
       end: true,
+    },
+    {
+      to: '/admin/orders',
+      label: 'Orders',
+      icon: Package,
+      badge: 'Live',
     },
     {
       to: '/admin/products',

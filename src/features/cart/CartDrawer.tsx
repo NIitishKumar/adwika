@@ -21,6 +21,7 @@ import {
 import { useCartStore } from '@/stores';
 import { isLoggedIn } from '@/config/auth.config';
 import { AddressSelector, UserAddress } from '@/features/address';
+import { orderService, Order, PaymentMethod, OrderAddress } from '@/features/orders';
 import { showToast } from '@/config/toast.config';
 
 type CartStep = 'bag' | 'address' | 'confirmation';
@@ -48,7 +49,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
   const [confirmedOrderRef, setConfirmedOrderRef] = useState<string>('');
-  const [confirmedAddressSnapshot, setConfirmedAddressSnapshot] = useState<UserAddress | null>(null);
+  const [confirmedAddressSnapshot, setConfirmedAddressSnapshot] = useState<UserAddress | OrderAddress | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
+  const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
 
   const handleSelectAddress = useCallback((addr: UserAddress | null) => {
     setSelectedAddress(addr);
@@ -123,20 +126,33 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
 
     setIsCheckingOut(true);
-    // Emulate consignment booking & confirmation
-    setTimeout(async () => {
-      const generatedRef = `ADW-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
-      setConfirmedOrderRef(generatedRef);
-      setConfirmedAddressSnapshot(selectedAddress);
-      setIsCheckingOut(false);
+    try {
+      const order = await orderService.placeOrder({
+        addressId: selectedAddress.id || selectedAddress.uniqueId || '',
+        fromCart: true,
+        paymentMethod,
+      });
+
+      setConfirmedOrder(order);
+      setConfirmedOrderRef(order.orderNumber);
+      setConfirmedAddressSnapshot(order.shippingAddress || selectedAddress);
       setStep('confirmation');
       await clearCart();
       showToast({
         type: 'success',
         title: 'Consignment Reserved',
-        message: `Order #${generatedRef} has been booked successfully.`,
+        message: `Order #${order.orderNumber} placed successfully.`,
       });
-    }, 900);
+    } catch (err: any) {
+      console.error('Failed to place order:', err);
+      showToast({
+        type: 'error',
+        title: 'Order Failed',
+        message: err?.message || 'Could not place order. Please try again.',
+      });
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   const handleHeaderBack = () => {
@@ -386,6 +402,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <p className="text-xs font-mono text-neutral-400 pt-1">
                   Contact: +91 {confirmedAddressSnapshot.phone}
                 </p>
+                {confirmedOrder && (
+                  <div className="pt-2 mt-2 border-t border-neutral-900 flex items-center justify-between text-[11px] font-mono text-neutral-400">
+                    <span>Payment: <strong className="text-neutral-200">{confirmedOrder.paymentMethod}</strong> ({confirmedOrder.paymentStatus})</span>
+                    <span>Total: <strong className="text-[#c9a87c]">{formatPrice(confirmedOrder.totalAmount)}</strong></span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -422,14 +444,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             </div>
 
-            <Button
-              variant="filled"
-              size="lg"
-              onClick={resetState}
-              className="mt-6 px-10 py-3.5 text-xs uppercase tracking-widest"
-            >
-              Continue Exploring Atelier Collection
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center gap-3 mt-4 w-full max-w-md">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  resetState();
+                  navigate('/orders');
+                }}
+                className="w-full sm:flex-1 py-3 text-xs uppercase tracking-widest border-[#3d332a] text-[#c9a87c] hover:bg-[#1a1714]"
+              >
+                View My Orders
+              </Button>
+              <Button
+                variant="filled"
+                size="lg"
+                onClick={resetState}
+                className="w-full sm:flex-1 py-3 text-xs uppercase tracking-widest"
+              >
+                Continue Exploring
+              </Button>
+            </div>
           </div>
         ) : items.length === 0 ? (
           /* Empty Bag */
@@ -545,6 +580,35 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         Please select an address from the left to complete your reservation.
                       </p>
                     )}
+                  </div>
+
+                  {/* Payment Method Selector */}
+                  <div className="space-y-2 pt-2 border-t border-neutral-900">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 block">
+                      Payment Privilege
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          { id: 'COD', label: 'Cash on Delivery' },
+                          { id: 'UPI', label: 'UPI Instant' },
+                          { id: 'ONLINE', label: 'Cards / Net' },
+                        ] as const
+                      ).map((pm) => (
+                        <button
+                          key={pm.id}
+                          type="button"
+                          onClick={() => setPaymentMethod(pm.id)}
+                          className={`p-2 border text-[10px] text-center uppercase tracking-wider transition-colors ${
+                            paymentMethod === pm.id
+                              ? 'border-[#c9a87c] bg-[#1a1714] text-[#c9a87c] font-medium'
+                              : 'border-neutral-800 bg-[#0a0a0c] text-neutral-400 hover:border-neutral-700'
+                          }`}
+                        >
+                          {pm.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Price Summary */}

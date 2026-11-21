@@ -10,12 +10,14 @@ import { ProductImagePage } from './pages/product-image';
 import { ProductVariantPage } from './pages/product-variant';
 import { FitSizePage } from './pages/fit-size';
 import { ProductColorListPage } from './pages/ProductColorListPage';
+import { AdminOrdersPage } from './pages/orders/page';
 
 export const AdminRoutes: React.FC = () => {
   return (
     <AdminLayout>
       <Routes>
         <Route index element={<AdminDashboardPage />} />
+        <Route path="orders" element={<AdminOrdersPage />} />
         <Route path="products" element={<ProductPage />} />
         <Route path="product-variants" element={<ProductVariantPage />} />
         <Route path="product-images" element={<ProductImagePage />} />

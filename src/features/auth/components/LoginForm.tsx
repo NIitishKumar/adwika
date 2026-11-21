@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
 import {
   ArrowRight,
@@ -13,6 +14,8 @@ import {
   ChevronUp,
   MapPin,
   Plus,
+  Package,
+  ExternalLink,
 } from 'lucide-react';
 import { validateWithZod } from '@/lib/validation/zod-formik';
 import {
@@ -33,6 +36,7 @@ import {
   CreateAddressDto,
   UpdateAddressDto,
 } from '@/features/address';
+import { orderService, Order } from '@/features/orders';
 import { showToast } from '@/config/toast.config';
 
 interface LoginFormProps {
@@ -50,12 +54,36 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   currentUser,
   onLogout,
 }) => {
+  const navigate = useNavigate();
   const [authStep, setAuthStep] = useState<AuthStep>('email');
   const [emailForOtp, setEmailForOtp] = useState<string>('');
   const [countdown, setCountdown] = useState<number>(30);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isResending, setIsResending] = useState<boolean>(false);
+
+  // Orders state for logged-in user
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
+  const [showOrders, setShowOrders] = useState<boolean>(false);
+
+  const loadOrders = async () => {
+    setIsLoadingOrders(true);
+    try {
+      const list = await orderService.getMyOrders();
+      setOrders(list);
+    } catch (err) {
+      console.error('Failed to load user orders:', err);
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser && showOrders) {
+      loadOrders();
+    }
+  }, [currentUser?.id, showOrders]);
 
   // Subscriptions state for logged-in user
   const [subscriptions, setSubscriptions] = useState<StockNotification[]>([]);
@@ -375,7 +403,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </div>
 
         {/* Delivery Addresses Section */}
-        <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-4 text-left mb-6">
+        <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-4 text-left mb-4">
           <div className="flex items-center justify-between">
             <button
               type="button"
@@ -488,6 +516,75 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     )}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Consignments / Orders Section */}
+        <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-4 text-left mb-6">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setShowOrders(!showOrders)}
+              className="flex-1 flex items-center justify-between text-xs text-neutral-800 font-medium"
+            >
+              <div className="flex items-center gap-2">
+                <Package size={13} className="text-[#54382c]" />
+                <span>My Consignments</span>
+                <span className="px-1.5 py-0.2 bg-[#f4ede4] text-[#54382c] rounded text-[10px] font-mono">
+                  {orders.length}
+                </span>
+              </div>
+              {showOrders ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+          </div>
+
+          {showOrders && (
+            <div className="mt-3 pt-3 border-t border-[#e8e4dc] space-y-2 max-h-56 overflow-y-auto">
+              <div className="flex justify-end pb-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onClose) onClose();
+                    navigate('/orders');
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-[#54382c] hover:underline font-medium"
+                >
+                  <span>Full Order History</span>
+                  <ExternalLink size={11} />
+                </button>
+              </div>
+
+              {isLoadingOrders ? (
+                <div className="flex items-center justify-center py-4 text-neutral-400 text-xs gap-2">
+                  <Loader2 size={13} className="animate-spin text-neutral-500" />
+                  <span>Loading consignments...</span>
+                </div>
+              ) : orders.length === 0 ? (
+                <p className="text-[11px] text-neutral-500 py-2 text-center font-sans">
+                  No orders placed yet.
+                </p>
+              ) : (
+                orders.map((ord) => (
+                  <div
+                    key={ord.id || ord.orderNumber}
+                    className="p-2.5 bg-white border border-[#eae6df] flex items-center justify-between gap-2 text-xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-serif font-medium text-neutral-900 truncate">
+                        #{ord.orderNumber}
+                      </p>
+                      <p className="text-[10px] text-neutral-500 font-mono">
+                        {ord.items.length} {ord.items.length === 1 ? 'item' : 'items'} · ₹
+                        {ord.totalAmount.toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                    <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-[#f4ede4] text-[#54382c]">
+                      {ord.orderStatus}
+                    </span>
+                  </div>
+                ))
               )}
             </div>
           )}

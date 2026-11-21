@@ -15,6 +15,12 @@ const AdminLayoutInner: React.FC<AdminLayoutProps> = ({ children }) => {
   const { isLight } = useAdminTheme();
 
   const getBreadcrumbs = () => {
+    if (location.pathname.includes('/admin/orders')) {
+      return [
+        { label: 'Admin Portal', to: '/admin' },
+        { label: 'Orders Management' },
+      ];
+    }
     if (location.pathname.includes('/admin/product-attributes')) {
       return [
         { label: 'Catalog Master', to: '/admin' },

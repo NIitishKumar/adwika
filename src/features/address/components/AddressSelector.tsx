@@ -26,10 +26,12 @@ export const AddressSelector: React.FC<AddressSelectorProps> = ({
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
 
   const onSelectAddressRef = useRef(onSelectAddress);
-  onSelectAddressRef.current = onSelectAddress;
-
   const selectedAddressIdRef = useRef(selectedAddressId);
-  selectedAddressIdRef.current = selectedAddressId;
+
+  useEffect(() => {
+    onSelectAddressRef.current = onSelectAddress;
+    selectedAddressIdRef.current = selectedAddressId;
+  });
 
   const fetchAddresses = async () => {
     setIsLoading(true);

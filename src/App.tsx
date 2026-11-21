@@ -11,6 +11,7 @@ import { ProductQuickView } from '@/features/products';
 import { AccountModal, LoginPage } from '@/features/auth';
 import type { AuthUser } from '@/features/auth';
 import { CartDrawer, CartPage } from '@/features/cart';
+import { MyOrdersPage } from '@/features/orders';
 import { AdminRoutes, GlobalToastContainer } from '@/features/admin';
 import { UnsubscribePage } from '@/features/stock-notifications';
 import { Product, RegionOption } from '@/types';
@@ -244,6 +245,16 @@ const AppContent: React.FC = () => {
             }
           />
           <Route path="/bag" element={<Navigate to="/cart" replace />} />
+          <Route
+            path="/orders"
+            element={
+              <MyOrdersPage
+                currency={activeCurrency}
+                onOpenAccountModal={() => setIsAccountModalOpen(true)}
+              />
+            }
+          />
+          <Route path="/my-orders" element={<Navigate to="/orders" replace />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

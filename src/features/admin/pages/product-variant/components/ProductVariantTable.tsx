@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   ArrowRight,
   TrendingDown,
+  PackagePlus,
 } from 'lucide-react';
 import { ProductVariant } from '../../../types/productVariant.types';
 import { Product } from '../../../types/product.types';
@@ -27,6 +28,7 @@ interface ProductVariantTableProps {
   onEdit: (variant: ProductVariant) => void;
   onDelete: (variant: ProductVariant) => void;
   onToggleStatus: (id: string, currentStatus: boolean) => Promise<void>;
+  onRestock?: (variant: ProductVariant) => void;
   isLoading?: boolean;
 }
 
@@ -39,6 +41,7 @@ export const ProductVariantTable: React.FC<ProductVariantTableProps> = ({
   onEdit,
   onDelete,
   onToggleStatus,
+  onRestock,
   isLoading = false,
 }) => {
   if (isLoading) {
@@ -251,6 +254,17 @@ export const ProductVariantTable: React.FC<ProductVariantTableProps> = ({
                 {/* 7. Actions */}
                 <td className="py-3.5 px-4 align-top text-right">
                   <div className="flex items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100">
+                    {onRestock && (
+                      <button
+                        type="button"
+                        onClick={() => onRestock(v)}
+                        className="p-1.5 text-neutral-400 hover:text-emerald-400 hover:bg-emerald-950/40 rounded transition-colors"
+                        title="Restock variant inventory & notify subscribers"
+                        aria-label={`Restock SKU ${v.sku}`}
+                      >
+                        <PackagePlus size={14} />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => onViewDetail(v)}

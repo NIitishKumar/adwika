@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
-import { ArrowRight, Mail, CheckCircle2, RotateCcw, AlertCircle } from 'lucide-react';
+import { ArrowRight, Mail, CheckCircle2, RotateCcw, AlertCircle, Bell, Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { validateWithZod } from '@/lib/validation/zod-formik';
 import {
   emailLoginSchema,
@@ -11,6 +11,7 @@ import {
 import { authService } from '../services/auth.service';
 import { AuthUser } from '../types/auth.types';
 import { saveAuthSession } from '@/config/auth.config';
+import { stockNotificationApi, StockNotification } from '@/services/stockNotification';
 
 interface LoginFormProps {
   onSuccess: (user: AuthUser) => void;
@@ -33,6 +34,49 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isResending, setIsResending] = useState<boolean>(false);
+
+  // Subscriptions state for logged-in user
+  const [subscriptions, setSubscriptions] = useState<StockNotification[]>([]);
+  const [isLoadingSubs, setIsLoadingSubs] = useState<boolean>(false);
+  const [showSubscriptions, setShowSubscriptions] = useState<boolean>(false);
+  const [unsubscribingId, setUnsubscribingId] = useState<string | null>(null);
+
+  // Fetch subscriptions when user is logged in
+  useEffect(() => {
+    if (currentUser?.email) {
+      setIsLoadingSubs(true);
+      stockNotificationApi
+        .getMySubscriptions(currentUser.email)
+        .then((res) => {
+          if (Array.isArray(res.data)) {
+            setSubscriptions(res.data);
+          }
+        })
+        .catch(() => {
+          setSubscriptions([]);
+        })
+        .finally(() => {
+          setIsLoadingSubs(false);
+        });
+    }
+  }, [currentUser?.email]);
+
+  const handleCancelSub = async (sub: StockNotification) => {
+    if (!currentUser?.email) return;
+    setUnsubscribingId(sub.id);
+    try {
+      await stockNotificationApi.unsubscribe({
+        email: currentUser.email,
+        productId: sub.productId,
+        variantId: sub.variantId,
+      });
+      setSubscriptions((prev) => prev.filter((s) => s.id !== sub.id));
+    } catch {
+      // Ignored
+    } finally {
+      setUnsubscribingId(null);
+    }
+  };
 
   // Countdown timer for OTP resend
   React.useEffect(() => {
@@ -139,6 +183,72 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               {currentUser.role.toLowerCase()}
             </span>
           </div>
+        </div>
+
+        {/* Restock Alerts Section */}
+        <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-4 text-left mb-6">
+          <button
+            type="button"
+            onClick={() => setShowSubscriptions(!showSubscriptions)}
+            className="w-full flex items-center justify-between text-xs text-neutral-800 font-medium"
+          >
+            <div className="flex items-center gap-2">
+              <Bell size={13} className="text-[#54382c]" />
+              <span>Restock Alerts</span>
+              <span className="px-1.5 py-0.2 bg-[#f4ede4] text-[#54382c] rounded text-[10px] font-mono">
+                {subscriptions.length}
+              </span>
+            </div>
+            {showSubscriptions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {showSubscriptions && (
+            <div className="mt-3 pt-3 border-t border-[#e8e4dc] space-y-2 max-h-48 overflow-y-auto">
+              {isLoadingSubs ? (
+                <div className="flex items-center justify-center py-3 text-neutral-400 text-xs gap-2">
+                  <Loader2 size={13} className="animate-spin text-neutral-500" />
+                  <span>Loading alerts...</span>
+                </div>
+              ) : subscriptions.length === 0 ? (
+                <p className="text-[11px] text-neutral-500 py-1 text-center font-sans">
+                  No active restock alerts.
+                </p>
+              ) : (
+                subscriptions.map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="p-2.5 bg-white border border-[#eae6df] flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-serif text-neutral-900 truncate">
+                        {sub.product?.name || 'Heirloom Garment'}
+                      </p>
+                      {(sub.variant?.color || sub.variant?.size) && (
+                        <p className="text-[10px] text-neutral-500 font-mono">
+                          {sub.variant.color && `${sub.variant.color} `}
+                          {sub.variant.size && `· ${sub.variant.size}`}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={unsubscribingId === sub.id}
+                      onClick={() => handleCancelSub(sub)}
+                      className="p-1 text-neutral-400 hover:text-red-600 transition-colors"
+                      title="Cancel restock alert"
+                      aria-label="Cancel alert"
+                    >
+                      {unsubscribingId === sub.id ? (
+                        <Loader2 size={13} className="animate-spin text-neutral-500" />
+                      ) : (
+                        <Trash2 size={13} />
+                      )}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         <button

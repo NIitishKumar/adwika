@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button } from '@/components/ui';
 import { Product, CurrencyConfig, CartItem } from '@/types';
-import { Sparkles, Check, Heart, Loader2 } from 'lucide-react';
+import { Sparkles, Check, Heart, Loader2, Bell } from 'lucide-react';
 import { productVariantService } from '@/features/admin/services/productVariant.service';
 import { ProductVariant } from '@/features/admin/types/productVariant.types';
 import { useCartStore } from '@/stores';
-import { isLoggedIn } from '@/config/auth.config';
+import { isLoggedIn, getCurrentUser } from '@/config/auth.config';
 import { showToast } from '@/config/toast.config';
+import { NotifyMeModal } from '@/features/stock-notifications';
 
 interface ProductQuickViewProps {
   product: Product | null;
@@ -24,17 +25,20 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
   onAddToCart,
 }) => {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [isLoadingVariants, setIsLoadingVariants] = useState<boolean>(false);
   const [selectedSize, setSelectedSize] = useState<string>('M');
   const [selectedColorId, setSelectedColorId] = useState<string>('');
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
 
   const addItemToCart = useCartStore((state) => state.addItem);
 
   useEffect(() => {
     let mounted = true;
     if (isOpen && product) {
+      setIsLoadingVariants(true);
       const targetId = product.id || product.categoryId || '';
       productVariantService
         .getAll(targetId)
@@ -54,9 +58,13 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
         })
         .catch(() => {
           if (mounted) setVariants([]);
+        })
+        .finally(() => {
+          if (mounted) setIsLoadingVariants(false);
         });
     } else {
       setVariants([]);
+      setIsLoadingVariants(false);
     }
     return () => {
       mounted = false;
@@ -81,7 +89,7 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
   // Derived available fit sizes strictly for the currently selected colorway
   const availableSizes = useMemo(() => {
     if (variants.length === 0) {
-      return product?.sizes || ['XS', 'S', 'M', 'L', 'XL'];
+      return [];
     }
 
     const variantsForColor = selectedColorId
@@ -107,8 +115,8 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
         .sort((a, b) => a[1] - b[1])
         .map((x) => x[0]);
     }
-    return product?.sizes || ['XS', 'S', 'M', 'L', 'XL'];
-  }, [variants, selectedColorId, product]);
+    return [];
+  }, [variants, selectedColorId]);
 
   const activeVariant = useMemo(() => {
     if (variants.length === 0) return null;
@@ -194,9 +202,10 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
 
   if (!product) return null;
 
+  const hasVariants = variants.length > 0;
   const currentPrice = activeVariant?.price != null ? activeVariant.price : product.priceINR;
   const comparePrice = activeVariant?.compareAtPrice;
-  const isOutOfStock = activeVariant ? activeVariant.stockQuantity <= 0 : false;
+  const isOutOfStock = !isLoadingVariants && (!hasVariants || (activeVariant ? activeVariant.stockQuantity <= 0 : true));
 
   const formatPrice = (amountINR: number) => {
     if (currency.code === 'INR') {
@@ -207,7 +216,7 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
   };
 
   const handleAdd = async () => {
-    if (!product) return;
+    if (!product || !hasVariants || isOutOfStock) return;
 
     if (!isLoggedIn()) {
       showToast({
@@ -294,15 +303,17 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
             </div>
 
             {/* Availability */}
-            {activeVariant && (
+            {!isLoadingVariants && (
               <div className="flex items-center gap-2 mb-4">
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    activeVariant.stockQuantity > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
+                    hasVariants && activeVariant && activeVariant.stockQuantity > 0
+                      ? 'bg-emerald-400 animate-pulse'
+                      : 'bg-rose-500'
                   }`}
                 />
                 <span className="text-[11px] text-neutral-300">
-                  {activeVariant.stockQuantity > 0
+                  {hasVariants && activeVariant && activeVariant.stockQuantity > 0
                     ? `In Stock (${activeVariant.stockQuantity} available)`
                     : 'Out of Stock'}
                 </span>
@@ -353,46 +364,48 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
               </div>
             )}
 
-            {/* Size Selector */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center text-xs mb-2.5">
-                <span className="uppercase tracking-widest text-neutral-400 text-[10px]">
-                  Select Size {selectedSize && <span className="text-white font-medium">({selectedSize})</span>}
-                </span>
-                <span className="text-neutral-500 underline text-[10px] cursor-pointer">Bespoke Fit Guide</span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {availableSizes.map((sz) => {
-                  const matchingVariant = variants.find(
-                    (v) =>
-                      (selectedColorId ? v.productColorId === selectedColorId || v.productColor?.id === selectedColorId : true) &&
-                      (v.fitSize?.fitCode === sz || v.fitSize?.name === sz)
-                  );
-                  const isAvailableInColor = Boolean(matchingVariant);
-                  const isSzOut = matchingVariant ? matchingVariant.stockQuantity <= 0 : false;
-                  const isSelected = selectedSize === sz;
+            {/* Size Selector — Hidden when out of stock / no variants */}
+            {hasVariants && availableSizes.length > 0 && (
+              <div className="mb-6">
+                <div className="flex justify-between items-center text-xs mb-2.5">
+                  <span className="uppercase tracking-widest text-neutral-400 text-[10px]">
+                    Select Size {selectedSize && <span className="text-white font-medium">({selectedSize})</span>}
+                  </span>
+                  <span className="text-neutral-500 underline text-[10px] cursor-pointer">Bespoke Fit Guide</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {availableSizes.map((sz) => {
+                    const matchingVariant = variants.find(
+                      (v) =>
+                        (selectedColorId ? v.productColorId === selectedColorId || v.productColor?.id === selectedColorId : true) &&
+                        (v.fitSize?.fitCode === sz || v.fitSize?.name === sz)
+                    );
+                    const isAvailableInColor = Boolean(matchingVariant);
+                    const isSzOut = matchingVariant ? matchingVariant.stockQuantity <= 0 : false;
+                    const isSelected = selectedSize === sz;
 
-                  return (
-                    <button
-                      key={sz}
-                      disabled={isSzOut}
-                      onClick={() => handleSizeChange(sz)}
-                      className={`flex-1 py-2 px-3 text-xs uppercase tracking-wider border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-white bg-white text-black font-semibold'
-                          : isSzOut
-                          ? 'border-neutral-900 bg-neutral-900/40 text-neutral-600 line-through cursor-not-allowed'
-                          : !isAvailableInColor
-                          ? 'border-neutral-800/60 bg-neutral-900/20 text-neutral-500 hover:border-neutral-700'
-                          : 'border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
-                      }`}
-                    >
-                      {sz}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={sz}
+                        disabled={isSzOut}
+                        onClick={() => handleSizeChange(sz)}
+                        className={`flex-1 py-2 px-3 text-xs uppercase tracking-wider border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-white bg-white text-black font-semibold'
+                            : isSzOut
+                            ? 'border-neutral-900 bg-neutral-900/40 text-neutral-600 line-through cursor-not-allowed'
+                            : !isAvailableInColor
+                            ? 'border-neutral-800/60 bg-neutral-900/20 text-neutral-500 hover:border-neutral-700'
+                            : 'border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
+                        }`}
+                      >
+                        {sz}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Craft details bullet list */}
             <div>
@@ -411,29 +424,59 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
           </div>
 
           {/* Add to Bag CTA */}
-          <div className="pt-6 mt-6 border-t border-neutral-800">
+          <div className="pt-6 mt-6 border-t border-neutral-800 space-y-2.5">
             <Button
               variant="filled"
               size="lg"
               onClick={handleAdd}
-              disabled={addedSuccess || isOutOfStock || isAdding}
+              disabled={addedSuccess || isOutOfStock || isAdding || !hasVariants}
               isLoading={isAdding}
-              className="w-full flex items-center justify-center gap-2"
+              className={`w-full flex items-center justify-center gap-2 ${
+                isOutOfStock || !hasVariants
+                  ? 'opacity-60 cursor-not-allowed bg-neutral-900 border border-neutral-800 text-neutral-400 hover:bg-neutral-900 hover:text-neutral-400'
+                  : ''
+              }`}
             >
               {addedSuccess ? (
                 <>
                   <Check size={16} />
                   <span>Added To Bag</span>
                 </>
-              ) : isOutOfStock ? (
-                <span>Sold Out</span>
+              ) : isOutOfStock || !hasVariants ? (
+                <span>Out of Stock</span>
               ) : (
                 <span>Add To Bag — {formatPrice(currentPrice)}</span>
               )}
             </Button>
+
+            {/* Notify Me When Available Button (shown when out of stock) */}
+            {(isOutOfStock || !hasVariants) && (
+              <button
+                type="button"
+                onClick={() => setIsNotifyModalOpen(true)}
+                className="w-full py-3 flex items-center justify-center gap-2 border border-[#c9a87c]/60 bg-[#191614] text-[#e8d5b5] hover:bg-[#26211d] hover:border-[#c9a87c] transition-all text-xs tracking-luxury uppercase font-medium cursor-pointer"
+              >
+                <Bell size={14} className="text-[#c9a87c]" />
+                <span>Notify Me When Available</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Restock Notification Modal */}
+      <NotifyMeModal
+        isOpen={isNotifyModalOpen}
+        onClose={() => setIsNotifyModalOpen(false)}
+        productId={product?.id || ''}
+        variantId={activeVariant?.id || activeVariant?.uniqueId}
+        productName={product?.name || 'Heirloom Garment'}
+        variantDetails={{
+          color: activeColor?.name,
+          size: hasVariants ? selectedSize : undefined,
+        }}
+        userEmail={getCurrentUser()?.email}
+      />
     </Modal>
   );
 };

@@ -12,6 +12,7 @@ import { AccountModal, LoginPage } from '@/features/auth';
 import type { AuthUser } from '@/features/auth';
 import { CartDrawer } from '@/features/cart';
 import { AdminRoutes, GlobalToastContainer } from '@/features/admin';
+import { UnsubscribePage } from '@/features/stock-notifications';
 import { Product, RegionOption } from '@/types';
 import { REGIONS, CURRENCY_RATES } from '@/data/products';
 import { getCurrentUser, clearAuthSession, isLoggedIn } from '@/config/auth.config';
@@ -224,6 +225,7 @@ const AppContent: React.FC = () => {
               />
             }
           />
+          <Route path="/unsubscribe" element={<UnsubscribePage />} />
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

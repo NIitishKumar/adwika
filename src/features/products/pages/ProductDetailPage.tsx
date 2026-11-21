@@ -3,15 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { CurrencyConfig, CartItem, Product } from '@/types';
 import { Button } from '@/components/ui';
 import { ProductCard } from '../ProductCard';
-import { Heart, Sparkles, ShieldCheck, ChevronDown, Check, ArrowLeft, Loader2, Tag } from 'lucide-react';
+import { Heart, Sparkles, ShieldCheck, ChevronDown, Check, ArrowLeft, Loader2, Tag, Bell } from 'lucide-react';
 import { productService } from '@/features/admin/services/product.service';
 import { productImageService } from '@/features/admin/services/productImage.service';
 import { productVariantService } from '@/features/admin/services/productVariant.service';
 import { ProductVariant } from '@/features/admin/types/productVariant.types';
 import { ApiErrorFallback } from '@/components/common/ApiErrorFallback';
 import { useCartStore } from '@/stores';
-import { isLoggedIn } from '@/config/auth.config';
+import { isLoggedIn, getCurrentUser } from '@/config/auth.config';
 import { showToast } from '@/config/toast.config';
+import { NotifyMeModal } from '@/features/stock-notifications';
 
 interface ProductDetailPageProps {
   currency: CurrencyConfig;
@@ -41,6 +42,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>('craft');
 
   const addItemToCart = useCartStore((state) => state.addItem);
@@ -185,7 +187,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   // Derived available fit sizes strictly for the currently selected colorway
   const availableSizes = useMemo(() => {
     if (variants.length === 0) {
-      return product?.sizes || ['XS', 'S', 'M', 'L', 'XL'];
+      return [];
     }
 
     // Filter variants that belong strictly to the currently selected color
@@ -217,8 +219,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         .map((x) => x.size);
     }
 
-    return ['XS', 'S', 'M', 'L', 'XL'];
-  }, [variants, selectedColorId, product?.sizes]);
+    return [];
+  }, [variants, selectedColorId]);
 
   // Active variant matching selected color & size
   const activeVariant = useMemo(() => {
@@ -293,9 +295,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
 
   // Pricing & Stock resolved dynamically from selected variant or base product
+  const hasVariants = variants.length > 0;
   const currentPriceINR = activeVariant?.price != null ? activeVariant.price : (product?.priceINR ?? 0);
   const compareAtPriceINR = activeVariant?.compareAtPrice;
-  const isOutOfStock = activeVariant ? activeVariant.stockQuantity <= 0 : false;
+  const isOutOfStock = !isLoadingVariants && (!hasVariants || (activeVariant ? activeVariant.stockQuantity <= 0 : true));
 
   const formatPrice = (amountINR: number) => {
     if (currency.code === 'INR') {
@@ -306,7 +309,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
 
   const handleAdd = async () => {
-    if (!product) return;
+    if (!product || !hasVariants || isOutOfStock) return;
 
     if (!isLoggedIn()) {
       showToast({
@@ -466,9 +469,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             </div>
 
             {/* Live Inventory Status from API Variant Response */}
-            {activeVariant && (
+            {!isLoadingVariants && (
               <div className="flex items-center gap-2 mb-6">
-                {activeVariant.stockQuantity > 0 ? (
+                {hasVariants && activeVariant && activeVariant.stockQuantity > 0 ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
                     <span className="text-xs text-neutral-300 font-sans">
@@ -485,7 +488,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <>
                     <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
                     <span className="text-xs text-rose-400 font-medium">
-                      Sold Out · Bespoke Production on Request
+                      Out of Stock · Bespoke Production on Request
                     </span>
                   </>
                 )}
@@ -533,70 +536,96 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
             )}
 
-            {/* Sizing from API Variants */}
-            <div className="mb-8">
-              <div className="flex justify-between items-center text-xs mb-3">
-                <span className="uppercase tracking-widest text-neutral-300 text-[10px]">
-                  Select Size {selectedSize && <span className="text-white font-semibold">({selectedSize})</span>}
-                </span>
-                <span className="text-neutral-500 underline text-[10px] cursor-pointer">Fit Consultation</span>
-              </div>
-              <div className="flex gap-2.5 flex-wrap">
-                {availableSizes.map((sz) => {
-                  const matchingVariant = variants.find(
-                    (v) =>
-                      (selectedColorId
-                        ? v.productColorId === selectedColorId || v.productColor?.id === selectedColorId
-                        : true) &&
-                      (v.fitSize?.fitCode === sz || v.fitSize?.name === sz)
-                  );
-                  const isAvailableInColor = Boolean(matchingVariant);
-                  const isSzOut = matchingVariant ? matchingVariant.stockQuantity <= 0 : false;
-                  const isSelected = selectedSize === sz;
+            {/* Sizing from API Variants — Hidden when product has no variants/out of stock */}
+            {hasVariants && availableSizes.length > 0 ? (
+              <div className="mb-8">
+                <div className="flex justify-between items-center text-xs mb-3">
+                  <span className="uppercase tracking-widest text-neutral-300 text-[10px]">
+                    Select Size {selectedSize && <span className="text-white font-semibold">({selectedSize})</span>}
+                  </span>
+                  <span className="text-neutral-500 underline text-[10px] cursor-pointer">Fit Consultation</span>
+                </div>
+                <div className="flex gap-2.5 flex-wrap">
+                  {availableSizes.map((sz) => {
+                    const matchingVariant = variants.find(
+                      (v) =>
+                        (selectedColorId
+                          ? v.productColorId === selectedColorId || v.productColor?.id === selectedColorId
+                          : true) &&
+                        (v.fitSize?.fitCode === sz || v.fitSize?.name === sz)
+                    );
+                    const isAvailableInColor = Boolean(matchingVariant);
+                    const isSzOut = matchingVariant ? matchingVariant.stockQuantity <= 0 : false;
+                    const isSelected = selectedSize === sz;
 
-                  return (
-                    <button
-                      key={sz}
-                      type="button"
-                      disabled={isSzOut}
-                      onClick={() => handleSizeChange(sz)}
-                      className={`min-w-[48px] flex-1 py-3 text-xs uppercase tracking-wider border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-white bg-white text-black font-semibold shadow-md'
-                          : isSzOut
-                          ? 'border-neutral-900 bg-neutral-900/40 text-neutral-600 line-through cursor-not-allowed'
-                          : !isAvailableInColor
-                          ? 'border-neutral-800/60 bg-neutral-900/20 text-neutral-500 hover:border-neutral-700 hover:text-neutral-300'
-                          : 'border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
-                      }`}
-                    >
-                      {sz}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={sz}
+                        type="button"
+                        disabled={isSzOut}
+                        onClick={() => handleSizeChange(sz)}
+                        className={`min-w-[48px] flex-1 py-3 text-xs uppercase tracking-wider border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-white bg-white text-black font-semibold shadow-md'
+                            : isSzOut
+                            ? 'border-neutral-900 bg-neutral-900/40 text-neutral-600 line-through cursor-not-allowed'
+                            : !isAvailableInColor
+                            ? 'border-neutral-800/60 bg-neutral-900/20 text-neutral-500 hover:border-neutral-700 hover:text-neutral-300'
+                            : 'border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white'
+                        }`}
+                      >
+                        {sz}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : !isLoadingVariants && !hasVariants ? (
+              <div className="mb-8 p-4 rounded border border-neutral-800/80 bg-[#121110] text-center">
+                <p className="text-xs text-neutral-400 font-sans leading-relaxed">
+                  This piece is currently out of stock. No size or color variants are presently available in the atelier archive.
+                </p>
+              </div>
+            ) : null}
 
             {/* CTA */}
             <Button
               variant="filled"
               size="lg"
               onClick={handleAdd}
-              disabled={addedSuccess || isOutOfStock || isAdding}
+              disabled={addedSuccess || isOutOfStock || isAdding || !hasVariants}
               isLoading={isAdding}
-              className="w-full py-4 mb-8 flex items-center justify-center gap-2"
+              className={`w-full py-4 ${
+                isOutOfStock || !hasVariants ? 'mb-3' : 'mb-8'
+              } flex items-center justify-center gap-2 ${
+                isOutOfStock || !hasVariants
+                  ? 'opacity-60 cursor-not-allowed bg-neutral-900 border border-neutral-800 text-neutral-400 hover:bg-neutral-900 hover:text-neutral-400'
+                  : ''
+              }`}
             >
               {addedSuccess ? (
                 <>
                   <Check size={16} />
                   <span>Reserved In Your Bag</span>
                 </>
-              ) : isOutOfStock ? (
-                <span>Sold Out</span>
+              ) : isOutOfStock || !hasVariants ? (
+                <span>Out of Stock</span>
               ) : (
                 <span>Add To Bag — {formatPrice(currentPriceINR)}</span>
               )}
             </Button>
+
+            {/* Notify Me When Available Button (shown when piece or variant is out of stock) */}
+            {(isOutOfStock || !hasVariants) && (
+              <button
+                type="button"
+                onClick={() => setIsNotifyModalOpen(true)}
+                className="w-full py-3.5 mb-8 flex items-center justify-center gap-2 border border-[#c9a87c]/60 bg-[#191614] text-[#e8d5b5] hover:bg-[#26211d] hover:border-[#c9a87c] transition-all text-xs tracking-luxury uppercase font-medium cursor-pointer"
+              >
+                <Bell size={14} className="text-[#c9a87c]" />
+                <span>Notify Me When Available</span>
+              </button>
+            )}
 
             {/* Accordions */}
             <div className="border-t border-neutral-800 divide-y divide-neutral-800 text-xs">
@@ -681,6 +710,20 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           </div>
         )}
       </div>
+
+      {/* Restock Notification Modal */}
+      <NotifyMeModal
+        isOpen={isNotifyModalOpen}
+        onClose={() => setIsNotifyModalOpen(false)}
+        productId={product?.id || id || ''}
+        variantId={activeVariant?.id || activeVariant?.uniqueId}
+        productName={product?.name || 'Heirloom Garment'}
+        variantDetails={{
+          color: activeColor?.name,
+          size: hasVariants ? selectedSize : undefined,
+        }}
+        userEmail={getCurrentUser()?.email}
+      />
     </div>
   );
 };

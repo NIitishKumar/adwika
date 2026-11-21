@@ -45,6 +45,10 @@ export function useProductVariant() {
   const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
+  // Restock Modal States
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState<boolean>(false);
+  const [restockingVariant, setRestockingVariant] = useState<ProductVariant | null>(null);
+
   // Toasts
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -390,6 +394,24 @@ export function useProductVariant() {
     }
   };
 
+  // Restock Handlers
+  const handleOpenRestock = (variant: ProductVariant) => {
+    setRestockingVariant(variant);
+    setIsRestockModalOpen(true);
+  };
+
+  const handleCloseRestock = () => {
+    setRestockingVariant(null);
+    setIsRestockModalOpen(false);
+  };
+
+  const handleRestockSuccess = (updatedVariant: ProductVariant, message: string) => {
+    setVariants((prev) =>
+      prev.map((v) => (v.id === updatedVariant.id ? { ...v, stockQuantity: updatedVariant.stockQuantity } : v))
+    );
+    showToast('success', message, 'Restocked & Notified');
+  };
+
   // Aggregate stats
   const totalCount = variants.length;
   const activeCount = variants.filter((v) => v.isActive).length;
@@ -438,6 +460,11 @@ export function useProductVariant() {
     selectedVariantDetail,
     isLoadingDetail,
     detailError,
+    isRestockModalOpen,
+    restockingVariant,
+    handleOpenRestock,
+    handleCloseRestock,
+    handleRestockSuccess,
     toasts,
     dismissToast,
     loadData,

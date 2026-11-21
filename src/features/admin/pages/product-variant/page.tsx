@@ -19,6 +19,7 @@ import {
   ProductVariantModal,
   DeleteProductVariantModal,
   ProductVariantDetailModal,
+  RestockVariantModal,
 } from './components';
 import { AdminToastContainer } from '../../components/common/AdminToast';
 import { useProductVariant } from './useProductVariant';
@@ -64,6 +65,11 @@ export const ProductVariantPage: React.FC = () => {
     selectedVariantDetail,
     isLoadingDetail,
     detailError,
+    isRestockModalOpen,
+    restockingVariant,
+    handleOpenRestock,
+    handleCloseRestock,
+    handleRestockSuccess,
     toasts,
     dismissToast,
     loadData,
@@ -321,6 +327,7 @@ export const ProductVariantPage: React.FC = () => {
         onEdit={handleOpenEdit}
         onDelete={handleOpenDelete}
         onToggleStatus={handleToggleStatus}
+        onRestock={handleOpenRestock}
         isLoading={isLoading}
       />
 
@@ -361,6 +368,14 @@ export const ProductVariantPage: React.FC = () => {
         fitSize={deletingVariant ? fitSizeMap.get(deletingVariant.fitSizeId) : undefined}
         productColor={deletingVariant ? colorMap.get(deletingVariant.productColorId) : undefined}
         isDeleting={isDeleting}
+      />
+
+      {/* Restock & Notify Subscribers Modal */}
+      <RestockVariantModal
+        isOpen={isRestockModalOpen}
+        onClose={handleCloseRestock}
+        variant={restockingVariant}
+        onSuccess={handleRestockSuccess}
       />
     </div>
   );

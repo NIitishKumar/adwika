@@ -65,30 +65,33 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 2. 2-Column Curated Pillars Grid matching initial prototype */}
       <CategoryGridSection onSelectCategory={handleSelectCategoryFromGrid} />
 
-      {/* 3. Festive Edit Banner matching prototype */}
+      {/* 3. Patron Reflections & Customer Reviews (Cards listing horizontal scrollable) */}
+      <HomeReviewsSection />
+
+      {/* 4. Festive Edit Banner matching prototype */}
       {/* <div className="py-8 bg-[#f5f4ef]">
         <FestiveEditBanner />
       </div> */}
 
-      {/* 4. Tradition Section (A closer look at Adwika) matching prototype */}
+      {/* 5. Tradition Section (A closer look at Adwika) matching prototype */}
       <TraditionSection />
 
-      {/* 5. The Current Collection (Pieces to return to — 4-column product grid) */}
+      {/* 6. The Current Collection (Pieces to return to — 4-column product grid) */}
       <CurrentCollectionSection
         currency={currency}
         onQuickView={onQuickView}
       />
 
-      {/* 6. Beauty in the details (Editorial duo section) */}
+      {/* 7. Beauty in the details (Editorial duo section) */}
       {/* <EditorialDetailsSection /> */}
 
-      {/* 7. Notes on Craft & Culture (From the journal — 3 stories) */}
+      {/* 8. Notes on Craft & Culture (From the journal — 3 stories) */}
       <FromJournalSection />
 
-      {/* 8. Manifesto Banner (Dark maroon poetic statement) */}
+      {/* 9. Manifesto Banner (Dark maroon poetic statement) */}
       <ManifestoBanner />
 
-      {/* 9. Comprehensive Catalog Showcase with filter tabs */}
+      {/* 10. Comprehensive Catalog Showcase with filter tabs */}
       <CollectionShowcase
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
@@ -96,11 +99,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         onQuickView={onQuickView}
       />
 
-      {/* 10. Atelier Craft Story */}
-      {/* <CraftStorySection /> */}
-
-      {/* 11. Patron Reflections & Customer Reviews (Cards listing horizontal scrollable) */}
-      <HomeReviewsSection />
+      {/* 11. Atelier Craft Story */}
+      <CraftStorySection />
 
       {/* 12. Patrons Circle Newsletter (Formik + Zod validation) */}
       <NewsletterSection />

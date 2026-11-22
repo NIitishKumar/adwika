@@ -63,8 +63,11 @@ export interface DirectOrderItemDto {
 }
 
 export interface PlaceOrderDto {
-  addressId: string;
+  addressId?: string;
+  shippingAddressId?: string;
   fromCart?: boolean;
+  useCart?: boolean;
+  notes?: string;
   items?: DirectOrderItemDto[];
   paymentMethod: PaymentMethod;
   shippingFee?: number;

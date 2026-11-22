@@ -4,7 +4,8 @@ import {
   VerifyOtpPayload,
   VerifyOtpResponse,
 } from '../types/auth.types';
-import { API_BASE_URL } from '@/config/api.config';
+import { API_BASE_URL, authFetch } from '@/config/api.config';
+import { clearAuthSession } from '@/config/auth.config';
 import { showToast } from '@/config/toast.config';
 
 export const authService = {
@@ -104,6 +105,109 @@ export const authService = {
         throw new Error('No internet connection. Please check your network and try again.');
       }
       throw err;
+    }
+  },
+
+  /**
+   * Register with name, email, password, optional phone
+   * POST /api/v1/users/signup (or /auth/signup)
+   */
+  async signup(payload: {
+    name: string;
+    email: string;
+    password?: string;
+    phone?: string;
+  }): Promise<any> {
+    let response = await fetch(`${API_BASE_URL}/users/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    if (response.status === 404) {
+      response = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.message || 'Failed to sign up.');
+    }
+    return data;
+  },
+
+  /**
+   * Login with email or phone + password
+   * POST /api/v1/users/login (or /auth/login)
+   */
+  async login(payload: {
+    email?: string;
+    phone?: string;
+    password?: string;
+  }): Promise<any> {
+    let response = await fetch(`${API_BASE_URL}/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    if (response.status === 404) {
+      response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.message || 'Failed to log in.');
+    }
+    return data;
+  },
+
+  /**
+   * Get current logged-in user profile
+   * GET /api/v1/users/me (or /auth/me)
+   */
+  async getMe(): Promise<any> {
+    let response = await authFetch(`${API_BASE_URL}/users/me`);
+    if (response.status === 404) {
+      response = await authFetch(`${API_BASE_URL}/auth/me`);
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.message || 'Failed to fetch user profile.');
+    }
+    return data;
+  },
+
+  /**
+   * Clear cookies & logout session
+   * POST /api/v1/users/logout (or /auth/logout)
+   */
+  async logout(): Promise<void> {
+    try {
+      let response = await authFetch(`${API_BASE_URL}/users/logout`, {
+        method: 'POST',
+      });
+      if (response.status === 404) {
+        await authFetch(`${API_BASE_URL}/auth/logout`, {
+          method: 'POST',
+        });
+      }
+    } catch {
+      // Best-effort server notification
+    } finally {
+      clearAuthSession();
     }
   },
 };

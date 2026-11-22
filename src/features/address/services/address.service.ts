@@ -65,6 +65,34 @@ export const addressService = {
   },
 
   /**
+   * GET /api/v1/user-addresses/default
+   * Retrieves the current user's default delivery address
+   */
+  async getDefaultAddress(): Promise<UserAddress | null> {
+    try {
+      let res = await authFetch(`${API_BASE_URL}/user-addresses/default`);
+      if (res.status === 404) {
+        res = await authFetch(`${API_BASE_URL}/addresses/default`);
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        const candidate = data.data?.data || data.data || data;
+        if (candidate && (candidate.id || candidate._id || candidate.uniqueId)) {
+          return normalizeAddress(candidate);
+        }
+      }
+    } catch {
+      // Fallback below
+    }
+
+    // Fallback: lookup from user addresses list
+    const list = await this.getAddresses().catch(() => []);
+    if (list.length === 0) return null;
+    return list.find((a) => a.isDefault) || list[0] || null;
+  },
+
+  /**
    * GET /api/v1/user-addresses/:id
    */
   async getAddressById(id: string): Promise<UserAddress> {

@@ -127,4 +127,87 @@ export const stockNotificationApi = {
 
     return data;
   },
+
+  /**
+   * 6. Admin list all restock subscriptions with filters
+   * GET /api/v1/stock-notifications
+   */
+  async getAllSubscriptions(params?: {
+    email?: string;
+    productId?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<StockNotificationApiResponse<StockNotification[]>> {
+    const query = new URLSearchParams();
+    if (params?.email) query.set('email', params.email);
+    if (params?.productId) query.set('productId', params.productId);
+    if (params?.status) query.set('status', params.status);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await authFetch(`${API_BASE_URL}/stock-notifications${qs}`, {
+      headers: { Accept: 'application/json' },
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.message || 'Failed to list stock subscriptions.');
+    }
+    return data;
+  },
+
+  /**
+   * 7. Admin get single subscription details
+   * GET /api/v1/stock-notifications/:id
+   */
+  async getSubscriptionById(id: string): Promise<StockNotificationApiResponse<StockNotification>> {
+    const res = await authFetch(`${API_BASE_URL}/stock-notifications/${encodeURIComponent(id)}`, {
+      headers: { Accept: 'application/json' },
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.message || 'Failed to get stock subscription details.');
+    }
+    return data;
+  },
+
+  /**
+   * 8. Admin update subscription status / email / phone
+   * PATCH /api/v1/stock-notifications/:id
+   */
+  async updateSubscription(
+    id: string,
+    dataToUpdate: Partial<{ status: string; email: string; phone: string }>
+  ): Promise<StockNotificationApiResponse<StockNotification>> {
+    const res = await authFetch(`${API_BASE_URL}/stock-notifications/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dataToUpdate),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.message || 'Failed to update stock subscription.');
+    }
+    return data;
+  },
+
+  /**
+   * 9. Admin delete/cancel restock subscription
+   * DELETE /api/v1/stock-notifications/:id
+   */
+  async deleteSubscription(id: string): Promise<StockNotificationApiResponse<void>> {
+    const res = await authFetch(`${API_BASE_URL}/stock-notifications/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.message || 'Failed to delete stock subscription.');
+    }
+    return data;
+  },
 };

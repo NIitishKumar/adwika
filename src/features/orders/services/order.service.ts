@@ -79,21 +79,45 @@ function extractOrderList(resData: any): Order[] {
 
 export const orderService = {
   /**
-   * POST /api/v1/orders (or /orders/checkout)
+   * POST /api/v1/orders (or /orders/place, /orders/checkout)
    * Places a new order from cart or direct items
    */
   async placeOrder(dto: PlaceOrderDto): Promise<Order> {
+    const addrId = dto.shippingAddressId || dto.addressId;
+    const isCart = dto.useCart !== undefined ? dto.useCart : (dto.fromCart !== undefined ? dto.fromCart : true);
+
+    const payload: Record<string, any> = {
+      shippingAddressId: addrId,
+      addressId: addrId,
+      paymentMethod: dto.paymentMethod,
+      useCart: isCart,
+      fromCart: isCart,
+    };
+
+    if (dto.notes) payload.notes = dto.notes;
+    if (dto.shippingFee !== undefined) payload.shippingFee = dto.shippingFee;
+    if (dto.discount !== undefined) payload.discount = dto.discount;
+    if (dto.items && dto.items.length > 0) payload.items = dto.items;
+
     let res = await authFetch(`${API_BASE_URL}/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dto),
+      body: JSON.stringify(payload),
     });
+
+    if (res.status === 404) {
+      res = await authFetch(`${API_BASE_URL}/orders/place`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
 
     if (res.status === 404) {
       res = await authFetch(`${API_BASE_URL}/orders/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dto),
+        body: JSON.stringify(payload),
       });
     }
 
@@ -109,16 +133,26 @@ export const orderService = {
 
   /**
    * GET /api/v1/orders (or /orders/my-orders)
-   * Fetches customer's orders with optional status filters
+   * Fetches customer's orders with optional status filters & pagination
    */
-  async getMyOrders(params?: { orderStatus?: string; paymentStatus?: string }): Promise<Order[]> {
+  async getMyOrders(params?: {
+    orderStatus?: string;
+    status?: string;
+    paymentStatus?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<Order[]> {
     const query = new URLSearchParams();
-    if (params?.orderStatus && params.orderStatus !== 'ALL') {
-      query.set('orderStatus', params.orderStatus);
+    const st = params?.status || params?.orderStatus;
+    if (st && st !== 'ALL') {
+      query.set('status', st);
+      query.set('orderStatus', st);
     }
     if (params?.paymentStatus && params.paymentStatus !== 'ALL') {
       query.set('paymentStatus', params.paymentStatus);
     }
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
 

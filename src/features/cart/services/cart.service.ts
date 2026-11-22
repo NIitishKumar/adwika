@@ -27,18 +27,18 @@ export const cartService = {
   },
 
   /**
-   * POST /api/v1/cart
+   * POST /api/v1/cart/items (or /cart)
    * Adds an item by variantId
    */
   async addToCart(dto: AddToCartDto): Promise<Cart> {
-    let res = await authFetch(`${API_BASE_URL}/cart`, {
+    let res = await authFetch(`${API_BASE_URL}/cart/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dto),
     });
 
     if (res.status === 404) {
-      res = await authFetch(`${API_BASE_URL}/cart/items`, {
+      res = await authFetch(`${API_BASE_URL}/cart`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dto),
@@ -125,13 +125,19 @@ export const cartService = {
   },
 
   /**
-   * DELETE /api/v1/cart
+   * DELETE /api/v1/cart/clear (or /cart)
    * Clears the user's entire cart
    */
   async clearCart(): Promise<void> {
-    const res = await authFetch(`${API_BASE_URL}/cart`, {
+    let res = await authFetch(`${API_BASE_URL}/cart/clear`, {
       method: 'DELETE',
     });
+
+    if (res.status === 404) {
+      res = await authFetch(`${API_BASE_URL}/cart`, {
+        method: 'DELETE',
+      });
+    }
 
     if (!res.ok) {
       const errData = await res.json().catch(() => null);

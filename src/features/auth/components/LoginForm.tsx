@@ -16,6 +16,7 @@ import {
   Plus,
   Package,
   ExternalLink,
+  MessageSquare,
 } from 'lucide-react';
 import { validateWithZod } from '@/lib/validation/zod-formik';
 import {
@@ -37,6 +38,7 @@ import {
   UpdateAddressDto,
 } from '@/features/address';
 import { orderService, Order } from '@/features/orders';
+import { reviewService, ProductReview, RatingStars } from '@/features/reviews';
 import { showToast } from '@/config/toast.config';
 
 interface LoginFormProps {
@@ -115,6 +117,51 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       loadAddresses();
     }
   }, [currentUser?.id, showAddresses]);
+
+  // Reviews state for logged-in user
+  const [userReviews, setUserReviews] = useState<ProductReview[]>([]);
+  const [isLoadingUserReviews, setIsLoadingUserReviews] = useState<boolean>(false);
+  const [showUserReviews, setShowUserReviews] = useState<boolean>(false);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+
+  const loadUserReviews = async () => {
+    setIsLoadingUserReviews(true);
+    try {
+      const list = await reviewService.getMyReviews();
+      setUserReviews(list);
+    } catch (err) {
+      console.error('Failed to load user reviews:', err);
+    } finally {
+      setIsLoadingUserReviews(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser && showUserReviews) {
+      loadUserReviews();
+    }
+  }, [currentUser?.id, showUserReviews]);
+
+  const handleDeleteUserReview = async (reviewId: string) => {
+    setDeletingReviewId(reviewId);
+    try {
+      await reviewService.deleteReview(reviewId);
+      setUserReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      showToast({
+        type: 'success',
+        title: 'Review Removed',
+        message: 'Your appraisal has been deleted.',
+      });
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err?.message || 'Could not delete review.',
+      });
+    } finally {
+      setDeletingReviewId(null);
+    }
+  };
 
   const handleCreateAddress = async (dto: CreateAddressDto | UpdateAddressDto) => {
     try {
@@ -583,6 +630,73 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-[#f4ede4] text-[#54382c]">
                       {ord.orderStatus}
                     </span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Patron Appraisals / Reviews Section */}
+        <div className="w-full max-w-sm bg-[#faf8f5] border border-[#e8e4dc] p-4 text-left mb-6">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setShowUserReviews(!showUserReviews)}
+              className="flex-1 flex items-center justify-between text-xs text-neutral-800 font-medium"
+            >
+              <div className="flex items-center gap-2">
+                <MessageSquare size={13} className="text-[#54382c]" />
+                <span>My Appraisals</span>
+                <span className="px-1.5 py-0.2 bg-[#f4ede4] text-[#54382c] rounded text-[10px] font-mono">
+                  {userReviews.length}
+                </span>
+              </div>
+              {showUserReviews ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+          </div>
+
+          {showUserReviews && (
+            <div className="mt-3 pt-3 border-t border-[#e8e4dc] space-y-2 max-h-56 overflow-y-auto">
+              {isLoadingUserReviews ? (
+                <div className="flex items-center justify-center py-3 text-neutral-400 text-xs gap-2">
+                  <Loader2 size={13} className="animate-spin text-neutral-500" />
+                  <span>Loading appraisals...</span>
+                </div>
+              ) : userReviews.length === 0 ? (
+                <p className="text-[11px] text-neutral-500 py-2 text-center font-sans">
+                  You have not submitted any product appraisals yet.
+                </p>
+              ) : (
+                userReviews.map((rev) => (
+                  <div
+                    key={rev.id}
+                    className="p-2.5 bg-white border border-[#eae6df] flex items-center justify-between gap-2 text-xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <RatingStars rating={rev.rating} size={11} />
+                        <span className="font-serif font-medium text-neutral-900 truncate text-[11px]">
+                          {rev.title}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-neutral-500 font-sans truncate mt-0.5">
+                        {rev.comment}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={deletingReviewId === rev.id}
+                      onClick={() => handleDeleteUserReview(rev.id)}
+                      className="p-1 text-neutral-400 hover:text-rose-600 transition-colors"
+                      title="Delete Appraisal"
+                    >
+                      {deletingReviewId === rev.id ? (
+                        <Loader2 size={13} className="animate-spin text-neutral-500" />
+                      ) : (
+                        <Trash2 size={13} />
+                      )}
+                    </button>
                   </div>
                 ))
               )}

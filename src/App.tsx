@@ -138,7 +138,7 @@ const AppContent: React.FC = () => {
                 category="KURTIS"
                 title="Kurtis & Tunics"
                 subtitle="Exquisite long tunics, hand-block printed chanderis, and raw silk silhouettes."
-                heroImage="/images/women-editorial.jpg"
+                heroImage="/images/kurtis-and-tunics.jpeg"
                 currency={activeCurrency}
                 onQuickView={(p) => setQuickViewProduct(p)}
               />

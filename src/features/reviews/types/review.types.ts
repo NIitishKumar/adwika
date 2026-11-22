@@ -22,6 +22,9 @@ export interface ProductReview {
   uniqueId?: string;
   _id?: string;
   productId: string;
+  productName?: string;
+  productSlug?: string;
+  productImageUrl?: string;
   userId?: string;
   rating: number; // 1 - 5
   title: string;

@@ -3,10 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   HeroSection,
   CategoryGridSection,
-  FestiveEditBanner,
   TraditionSection,
   CurrentCollectionSection,
-  EditorialDetailsSection,
   FromJournalSection,
   ManifestoBanner,
   CollectionShowcase,
@@ -15,6 +13,7 @@ import {
 } from './';
 import { Product, CurrencyConfig, CategoryType } from '@/types';
 import { useCategoryStore } from '@/stores';
+import { HomeReviewsSection } from '@/features/reviews';
 
 interface HomePageProps {
   currency: CurrencyConfig;
@@ -98,9 +97,12 @@ export const HomePage: React.FC<HomePageProps> = ({
       />
 
       {/* 10. Atelier Craft Story */}
-      <CraftStorySection />
+      {/* <CraftStorySection /> */}
 
-      {/* 11. Patrons Circle Newsletter (Formik + Zod validation) */}
+      {/* 11. Patron Reflections & Customer Reviews (Cards listing horizontal scrollable) */}
+      <HomeReviewsSection />
+
+      {/* 12. Patrons Circle Newsletter (Formik + Zod validation) */}
       <NewsletterSection />
     </>
   );

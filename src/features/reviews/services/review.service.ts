@@ -1,4 +1,5 @@
 import { authFetch, API_BASE_URL } from '@/config/api.config';
+import { productService } from '@/features/admin/services/product.service';
 import {
   ProductReview,
   ReviewStats,
@@ -14,6 +15,9 @@ function normalizeReview(item: any): ProductReview {
     uniqueId: item?.uniqueId || item?.id || item?._id,
     _id: item?._id,
     productId: String(item?.productId || item?.product_id || item?.product?.id || item?.product?._id || ''),
+    productName: item?.productName || item?.product?.name || item?.product?.title || '',
+    productSlug: item?.productSlug || item?.product?.slug || '',
+    productImageUrl: item?.productImageUrl || item?.product?.imageUrl || item?.product?.image || '',
     userId: item?.userId || item?.user_id || item?.user?.id,
     rating: Number(item?.rating ?? 5),
     title: item?.title || '',
@@ -33,43 +37,97 @@ function normalizeReview(item: any): ProductReview {
 }
 
 function normalizeStats(stats: any, fallbackReviews: ProductReview[]): ReviewStats {
-  if (stats && typeof stats === 'object') {
-    const rawDist = stats.distribution || {};
-    return {
-      averageRating: Number(stats.averageRating ?? stats.average ?? 0),
-      totalReviews: Number(stats.totalReviews ?? stats.total ?? 0),
-      distribution: {
-        1: Number(rawDist['1'] ?? rawDist[1] ?? 0),
-        2: Number(rawDist['2'] ?? rawDist[2] ?? 0),
-        3: Number(rawDist['3'] ?? rawDist[3] ?? 0),
-        4: Number(rawDist['4'] ?? rawDist[4] ?? 0),
-        5: Number(rawDist['5'] ?? rawDist[5] ?? 0),
-      },
-    };
-  }
-
-  // Derive stats if not directly provided in payload
-  const total = fallbackReviews.length;
-  if (total === 0) {
-    return {
-      averageRating: 0,
-      totalReviews: 0,
-      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-    };
-  }
-
-  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  let sum = 0;
+  // 1. Calculate fallback distribution from the actual reviews list
+  const computedDistribution: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let computedSum = 0;
   fallbackReviews.forEach((r) => {
-    const rounded = Math.min(5, Math.max(1, Math.round(r.rating || 5))) as 1 | 2 | 3 | 4 | 5;
-    distribution[rounded] = (distribution[rounded] || 0) + 1;
-    sum += r.rating;
+    const rawVal = Number(r.rating);
+    const star = Math.min(5, Math.max(1, Math.round(isNaN(rawVal) ? 5 : rawVal))) as 1 | 2 | 3 | 4 | 5;
+    computedDistribution[star] = (computedDistribution[star] || 0) + 1;
+    computedSum += Number(r.rating) || star;
   });
 
+  const computedTotal = fallbackReviews.length;
+  const computedAverage = computedTotal > 0 ? Number((computedSum / computedTotal).toFixed(1)) : 0;
+
+  // 2. Extract distribution from backend stats if available
+  const rawDist =
+    stats?.distribution ||
+    stats?.ratingDistribution ||
+    stats?.ratingsDistribution ||
+    stats?.breakdown ||
+    stats?.ratingBreakdown ||
+    stats?.stars ||
+    stats?.counts ||
+    null;
+
+  const extractedDistribution: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let hasExtractedNonZero = false;
+
+  if (Array.isArray(rawDist)) {
+    // Array format: [ { rating: 5, count: 10 }, ... ] or [ { star: 5, count: 10 } ]
+    rawDist.forEach((item) => {
+      const star = Number(item?.rating ?? item?.star ?? item?._id ?? item?.stars);
+      const count = Number(item?.count ?? item?.total ?? item?.value ?? 0);
+      if (star >= 1 && star <= 5 && !isNaN(count)) {
+        extractedDistribution[star as 1 | 2 | 3 | 4 | 5] = count;
+        if (count > 0) hasExtractedNonZero = true;
+      }
+    });
+  } else if (rawDist && typeof rawDist === 'object') {
+    // Object format: { '5': 10, '4': 2, ... } or { star5: 10, ... }
+    ([1, 2, 3, 4, 5] as const).forEach((star) => {
+      const val =
+        rawDist[String(star)] ??
+        rawDist[star] ??
+        rawDist[`star${star}`] ??
+        rawDist[`${star}_star`] ??
+        rawDist[`${star}Star`] ??
+        0;
+      const count = Number(val);
+      if (!isNaN(count) && count > 0) {
+        extractedDistribution[star] = count;
+        hasExtractedNonZero = true;
+      }
+    });
+  }
+
+  // 3. Resolve final distribution: If backend returned valid non-zero distribution counts, use it.
+  // Otherwise, fallback to the distribution computed from the actual reviews list.
+  const finalDistribution = hasExtractedNonZero ? extractedDistribution : computedDistribution;
+
+  const distSum =
+    finalDistribution[1] +
+    finalDistribution[2] +
+    finalDistribution[3] +
+    finalDistribution[4] +
+    finalDistribution[5];
+
+  const totalReviews = Math.max(
+    Number(stats?.totalReviews ?? stats?.total ?? stats?.count ?? 0),
+    distSum,
+    computedTotal
+  );
+
+  let averageRating = Number(stats?.averageRating ?? stats?.average ?? stats?.rating ?? 0);
+  if (averageRating <= 0 || isNaN(averageRating)) {
+    if (distSum > 0) {
+      const weightedSum =
+        finalDistribution[1] * 1 +
+        finalDistribution[2] * 2 +
+        finalDistribution[3] * 3 +
+        finalDistribution[4] * 4 +
+        finalDistribution[5] * 5;
+      averageRating = Number((weightedSum / distSum).toFixed(1));
+    } else {
+      averageRating = computedAverage;
+    }
+  }
+
   return {
-    averageRating: Number((sum / total).toFixed(1)),
-    totalReviews: total,
-    distribution,
+    averageRating: Number(averageRating.toFixed(1)),
+    totalReviews,
+    distribution: finalDistribution,
   };
 }
 
@@ -146,6 +204,75 @@ export const reviewService = {
     const stats = normalizeStats(payload?.stats, reviews);
 
     return { stats, reviews };
+  },
+
+  /**
+   * GET /api/v1/product-reviews
+   * Fetches customer reviews for the storefront / home page
+   */
+  async getAllReviews(limit = 12): Promise<ProductReview[]> {
+    try {
+      let res = await authFetch(`${API_BASE_URL}/product-reviews?limit=${limit}&sortBy=newest`, {
+        headers: { Accept: 'application/json' },
+      });
+
+      if (res.status === 404) {
+        res = await authFetch(`${API_BASE_URL}/reviews?limit=${limit}&sortBy=newest`, {
+          headers: { Accept: 'application/json' },
+        });
+      }
+
+      if (res.ok) {
+        const json = await res.json();
+        const payload = json.data?.data || json.data || json;
+        const rawList = Array.isArray(payload?.reviews)
+          ? payload.reviews
+          : Array.isArray(payload)
+          ? payload
+          : [];
+
+        if (rawList.length > 0) {
+          return rawList.map(normalizeReview);
+        }
+      }
+    } catch {
+      // Continue to product reviews aggregation
+    }
+
+    // Direct aggregation across active products
+    try {
+      const prodRes = await productService.getAll({ status: 'ACTIVE' });
+      const products = prodRes?.data || [];
+      const collected: ProductReview[] = [];
+
+      for (const prod of products.slice(0, 10)) {
+        try {
+          const revRes = await this.getProductReviews(prod.id || prod.productId || prod.slug, { limit: 4 });
+          if (revRes.reviews && revRes.reviews.length > 0) {
+            revRes.reviews.forEach((r) => {
+              if (!collected.some((existing) => existing.id === r.id)) {
+                collected.push({
+                  ...r,
+                  productName: r.productName || prod.name,
+                  productSlug: r.productSlug || prod.slug,
+                  productImageUrl: r.productImageUrl || prod.imageUrl,
+                });
+              }
+            });
+          }
+        } catch {
+          // ignore individual product review fetch errors
+        }
+        if (collected.length >= limit) break;
+      }
+
+      return collected.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    } catch (err) {
+      console.error('Failed to load reviews for home page:', err);
+      return [];
+    }
   },
 
   /**

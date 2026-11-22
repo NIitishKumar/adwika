@@ -9,14 +9,27 @@ interface ReviewStatsSummaryProps {
   stats: ReviewStats;
   onOpenWriteModal: () => void;
   isLoggedIn: boolean;
+  selectedRating?: number | null;
+  onSelectRating?: (rating: number | null) => void;
 }
 
 export const ReviewStatsSummary: React.FC<ReviewStatsSummaryProps> = ({
   stats,
   onOpenWriteModal,
   isLoggedIn,
+  selectedRating,
+  onSelectRating,
 }) => {
   const { averageRating, totalReviews, distribution } = stats;
+
+  const distributionSum =
+    (distribution[1] || 0) +
+    (distribution[2] || 0) +
+    (distribution[3] || 0) +
+    (distribution[4] || 0) +
+    (distribution[5] || 0);
+
+  const effectiveTotal = Math.max(totalReviews, distributionSum);
 
   return (
     <div className="bg-[#121113] border border-neutral-800/90 p-6 sm:p-8">
@@ -50,23 +63,56 @@ export const ReviewStatsSummary: React.FC<ReviewStatsSummaryProps> = ({
         </div>
 
         {/* Middle: 5-Star Breakdown Bars */}
-        <div className="md:col-span-5 space-y-2">
+        <div className="md:col-span-5 space-y-2.5">
           {[5, 4, 3, 2, 1].map((stars) => {
             const count = distribution[stars as 1 | 2 | 3 | 4 | 5] || 0;
-            const percentage = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+            const percentage = effectiveTotal > 0 ? Math.round((count / effectiveTotal) * 100) : 0;
+            const isSelected = selectedRating === stars;
+            const hasReviews = count > 0;
 
             return (
-              <div key={stars} className="flex items-center gap-3 text-xs">
-                <span className="w-10 text-[11px] font-mono text-neutral-400 shrink-0 text-right">
+              <div
+                key={stars}
+                onClick={() => onSelectRating?.(isSelected ? null : stars)}
+                className={`flex items-center gap-3 text-xs p-1 -m-1 rounded transition-colors group ${
+                  onSelectRating ? 'cursor-pointer' : ''
+                } ${
+                  isSelected
+                    ? 'bg-neutral-900/90 ring-1 ring-[#c9a87c]/60'
+                    : onSelectRating && hasReviews
+                    ? 'hover:bg-neutral-900/50'
+                    : ''
+                }`}
+                title={hasReviews && onSelectRating ? `Filter by ${stars}-star reviews (${count})` : undefined}
+              >
+                <span
+                  className={`w-10 text-[11px] font-mono shrink-0 text-right transition-colors ${
+                    isSelected
+                      ? 'text-[#c9a87c] font-semibold'
+                      : hasReviews
+                      ? 'text-neutral-300 group-hover:text-[#c9a87c]'
+                      : 'text-neutral-500'
+                  }`}
+                >
                   {stars} ★
                 </span>
                 <div className="flex-1 h-2 bg-neutral-900 border border-neutral-800 overflow-hidden rounded-full">
                   <div
-                    className="h-full bg-[#c9a87c] transition-all duration-500 rounded-full"
+                    className={`h-full transition-all duration-500 rounded-full ${
+                      hasReviews ? 'bg-[#c9a87c]' : 'bg-neutral-800'
+                    }`}
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
-                <span className="w-12 text-[10px] font-mono text-neutral-500 shrink-0 text-left">
+                <span
+                  className={`min-w-[62px] text-[11px] font-mono shrink-0 text-left transition-colors ${
+                    isSelected
+                      ? 'text-[#c9a87c] font-semibold'
+                      : hasReviews
+                      ? 'text-neutral-200 font-medium'
+                      : 'text-neutral-500'
+                  }`}
+                >
                   {percentage}% ({count})
                 </span>
               </div>

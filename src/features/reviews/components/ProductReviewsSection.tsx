@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ProductReview, ReviewStats } from '../types/review.types';
 import { reviewService } from '../services/review.service';
 import { ReviewStatsSummary } from './ReviewStatsSummary';
@@ -33,6 +33,12 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
   const [sortBy, setSortBy] = useState<'newest' | 'highest' | 'lowest' | 'helpful'>('newest');
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
   const [editingReview, setEditingReview] = useState<ProductReview | null>(null);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+
+  const displayedReviews = useMemo(() => {
+    if (!selectedRating) return reviews;
+    return reviews.filter((r) => Math.round(Number(r.rating) || 5) === selectedRating);
+  }, [reviews, selectedRating]);
 
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getCurrentUser());
   const isUserLoggedIn = Boolean(currentUser) && isLoggedIn();
@@ -151,7 +157,30 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
         stats={stats}
         onOpenWriteModal={handleOpenWriteModal}
         isLoggedIn={isUserLoggedIn}
+        selectedRating={selectedRating}
+        onSelectRating={setSelectedRating}
       />
+
+      {/* Selected Rating Filter Banner */}
+      {selectedRating && (
+        <div className="flex items-center justify-between px-4 py-2.5 rounded bg-[#181614] border border-[#3d332a] text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-neutral-300">
+              Showing appraisals with <strong className="text-[#c9a87c]">{selectedRating} ★</strong>
+            </span>
+            <span className="font-mono text-neutral-500">
+              ({displayedReviews.length} {displayedReviews.length === 1 ? 'reflection' : 'reflections'})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedRating(null)}
+            className="text-[11px] font-mono text-[#c9a87c] hover:underline cursor-pointer"
+          >
+            Clear Filter (Show All)
+          </button>
+        </div>
+      )}
 
       {/* Reviews List */}
       {isLoading ? (
@@ -199,9 +228,20 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
             </div>
           )}
         </div>
+      ) : displayedReviews.length === 0 ? (
+        <div className="py-12 px-6 border border-dashed border-neutral-800 text-center flex flex-col items-center gap-2">
+          <p className="text-xs text-neutral-400">No {selectedRating}-star appraisals found.</p>
+          <button
+            type="button"
+            onClick={() => setSelectedRating(null)}
+            className="text-xs text-[#c9a87c] underline cursor-pointer"
+          >
+            Show all appraisals ({reviews.length})
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {reviews.map((review) => (
+          {displayedReviews.map((review) => (
             <ReviewCard
               key={review.id}
               review={review}

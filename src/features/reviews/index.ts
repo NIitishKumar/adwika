@@ -5,3 +5,4 @@ export * from './components/ReviewStatsSummary';
 export * from './components/ReviewCard';
 export * from './components/WriteReviewModal';
 export * from './components/ProductReviewsSection';
+export * from './components/HomeReviewsSection';

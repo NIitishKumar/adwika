@@ -5,7 +5,7 @@ import { ProductReview, CreateReviewDto, UpdateReviewDto } from '../types/review
 import { reviewService } from '../services/review.service';
 import { showToast } from '@/config/toast.config';
 import { isLoggedIn } from '@/config/auth.config';
-import { Sparkles, Loader2, X } from 'lucide-react';
+import { Sparkles, Loader2, X, Lock } from 'lucide-react';
 
 interface WriteReviewModalProps {
   isOpen: boolean;
@@ -143,6 +143,48 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  if (isOpen && !loggedIn) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Patron Sign-In Required"
+        maxWidth="max-w-md"
+      >
+        <div className="p-4 sm:p-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-[#181614] border border-[#3d332a] text-[#c9a87c] mx-auto flex items-center justify-center">
+            <Lock size={20} />
+          </div>
+          <div>
+            <h3 className="font-serif text-base uppercase tracking-wider text-neutral-100">
+              Sign In to Appraise
+            </h3>
+            <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
+              To preserve authentic heirloom reflections, writing and updating product appraisals is reserved exclusively for registered patrons.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+            <Button
+              variant="filled"
+              size="sm"
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent('adwika:open-account-modal'));
+                if (onOpenAuthModal) onOpenAuthModal();
+              }}
+              className="bg-[#c9a87c] text-black border-transparent hover:bg-[#d6b589] font-medium"
+            >
+              Sign In Now
+            </Button>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

@@ -2,7 +2,8 @@ import React from 'react';
 import { ReviewStats } from '../types/review.types';
 import { RatingStars } from './RatingStars';
 import { Button } from '@/components/ui';
-import { Award, PenLine } from 'lucide-react';
+import { Award, PenLine, LogIn } from 'lucide-react';
+import { showToast } from '@/config/toast.config';
 
 interface ReviewStatsSummaryProps {
   stats: ReviewStats;
@@ -13,6 +14,7 @@ interface ReviewStatsSummaryProps {
 export const ReviewStatsSummary: React.FC<ReviewStatsSummaryProps> = ({
   stats,
   onOpenWriteModal,
+  isLoggedIn,
 }) => {
   const { averageRating, totalReviews, distribution } = stats;
 
@@ -72,7 +74,7 @@ export const ReviewStatsSummary: React.FC<ReviewStatsSummaryProps> = ({
           })}
         </div>
 
-        {/* Right: Write Review CTA */}
+        {/* Right: Write Review CTA (For Logged-In Users Only) */}
         <div className="md:col-span-3 flex flex-col items-center justify-center text-center md:border-l border-neutral-800 md:pl-8">
           <p className="text-xs text-neutral-300 font-serif uppercase tracking-wider mb-2">
             Cherish an Adwika Heirloom?
@@ -80,15 +82,39 @@ export const ReviewStatsSummary: React.FC<ReviewStatsSummaryProps> = ({
           <p className="text-[11px] text-neutral-500 leading-relaxed mb-4">
             Share your reflection on texture, drape, and master craftsmanship.
           </p>
-          <Button
-            variant="outline"
-            size="md"
-            onClick={onOpenWriteModal}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 border-[#3d332a] text-[#c9a87c] hover:bg-[#1a1714] text-xs py-2.5 px-5 uppercase tracking-widest"
-          >
-            <PenLine size={14} />
-            <span>Write an Appraisal</span>
-          </Button>
+          {isLoggedIn ? (
+            <Button
+              variant="outline"
+              size="md"
+              onClick={onOpenWriteModal}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 border-[#3d332a] text-[#c9a87c] hover:bg-[#1a1714] text-xs py-2.5 px-5 uppercase tracking-widest cursor-pointer"
+            >
+              <PenLine size={14} />
+              <span>Write an Appraisal</span>
+            </Button>
+          ) : (
+            <div className="flex flex-col items-center gap-2 w-full">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => {
+                  showToast({
+                    type: 'info',
+                    title: 'Authentication Required',
+                    message: 'Please sign in to write an appraisal for this heirloom piece.',
+                  });
+                  window.dispatchEvent(new CustomEvent('adwika:open-account-modal'));
+                }}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 border-neutral-800 text-neutral-300 hover:text-white hover:border-[#c9a87c] hover:bg-[#1a1714] text-xs py-2.5 px-4 uppercase tracking-widest cursor-pointer"
+              >
+                <LogIn size={13} className="text-[#c9a87c]" />
+                <span>Sign In to Review</span>
+              </Button>
+              <span className="text-[10px] text-neutral-500 font-mono tracking-wider">
+                Exclusively for registered patrons
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

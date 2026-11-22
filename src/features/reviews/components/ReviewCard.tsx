@@ -4,6 +4,7 @@ import { RatingStars } from './RatingStars';
 import { reviewService } from '../services/review.service';
 import { ThumbsUp, ShieldCheck, Trash2, Edit3 } from 'lucide-react';
 import { showToast } from '@/config/toast.config';
+import { isLoggedIn } from '@/config/auth.config';
 
 interface ReviewCardProps {
   review: ProductReview;
@@ -34,6 +35,15 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   });
 
   const handleToggleHelpful = async () => {
+    if (!isLoggedIn()) {
+      showToast({
+        type: 'info',
+        title: 'Sign In Required',
+        message: 'Please sign in to vote on patron appraisals.',
+      });
+      window.dispatchEvent(new CustomEvent('adwika:open-account-modal'));
+      return;
+    }
     setIsVoting(true);
     try {
       const res = await reviewService.toggleHelpful(review.id);

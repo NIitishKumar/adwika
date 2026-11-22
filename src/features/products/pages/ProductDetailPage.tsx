@@ -906,6 +906,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         <ProductReviewsSection
           productId={product?.id || id || ''}
           productName={product?.name}
+          onOpenAuthModal={() => {
+            window.dispatchEvent(new CustomEvent('adwika:open-account-modal'));
+          }}
           className="mt-20 pt-16 border-t border-neutral-900"
         />
 

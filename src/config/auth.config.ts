@@ -22,6 +22,9 @@ export function saveAuthSession(user: AuthUser, token: string): void {
     expiresAt: Date.now() + SESSION_TTL_MS,
   };
   sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('adwika:auth-change', { detail: { user, token } }));
+  }
 }
 
 /**
@@ -71,5 +74,8 @@ export function getAuthToken(): string | null {
  */
 export function clearAuthSession(): void {
   sessionStorage.removeItem(AUTH_SESSION_KEY);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('adwika:auth-change', { detail: null }));
+  }
 }
 

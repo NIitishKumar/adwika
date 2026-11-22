@@ -5,9 +5,10 @@ import { ReviewStatsSummary } from './ReviewStatsSummary';
 import { ReviewCard } from './ReviewCard';
 import { WriteReviewModal } from './WriteReviewModal';
 import { Button } from '@/components/ui';
-import { Loader2, MessageSquare, ArrowUpDown, PenLine } from 'lucide-react';
+import { Loader2, MessageSquare, ArrowUpDown, PenLine, LogIn } from 'lucide-react';
 import { showToast } from '@/config/toast.config';
-import { getCurrentUser } from '@/config/auth.config';
+import { getCurrentUser, isLoggedIn } from '@/config/auth.config';
+import type { AuthUser } from '@/features/auth/types/auth.types';
 
 interface ProductReviewsSectionProps {
   productId: string;
@@ -33,7 +34,36 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
   const [editingReview, setEditingReview] = useState<ProductReview | null>(null);
 
-  const currentUser = getCurrentUser();
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getCurrentUser());
+  const isUserLoggedIn = Boolean(currentUser) && isLoggedIn();
+
+  // Listen for auth state changes so UI dynamically reacts when user logs in/out
+  useEffect(() => {
+    const handleAuthChange = () => {
+      setCurrentUser(getCurrentUser());
+    };
+    window.addEventListener('adwika:auth-change', handleAuthChange);
+    window.addEventListener('adwika:unauthorized', handleAuthChange);
+    return () => {
+      window.removeEventListener('adwika:auth-change', handleAuthChange);
+      window.removeEventListener('adwika:unauthorized', handleAuthChange);
+    };
+  }, []);
+
+  const handleOpenWriteModal = () => {
+    if (!isLoggedIn()) {
+      showToast({
+        type: 'info',
+        title: 'Authentication Required',
+        message: 'Please sign in to write an appraisal for this heirloom piece.',
+      });
+      window.dispatchEvent(new CustomEvent('adwika:open-account-modal'));
+      if (onOpenAuthModal) onOpenAuthModal();
+      return;
+    }
+    setEditingReview(null);
+    setIsWriteModalOpen(true);
+  };
 
   const fetchReviews = useCallback(async () => {
     if (!productId) return;
@@ -119,11 +149,8 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
       {/* Review Aggregate Summary Bar */}
       <ReviewStatsSummary
         stats={stats}
-        onOpenWriteModal={() => {
-          setEditingReview(null);
-          setIsWriteModalOpen(true);
-        }}
-        isLoggedIn={Boolean(currentUser)}
+        onOpenWriteModal={handleOpenWriteModal}
+        isLoggedIn={isUserLoggedIn}
       />
 
       {/* Reviews List */}
@@ -145,18 +172,32 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
           <p className="text-xs text-neutral-500 max-w-md leading-relaxed">
             Every Adwika heirloom carries generations of craft lineage. Share your appraisal to guide fellow connoisseurs.
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setEditingReview(null);
-              setIsWriteModalOpen(true);
-            }}
-            className="mt-2 border-[#3d332a] text-[#c9a87c] hover:bg-[#1a1714] text-xs uppercase tracking-widest"
-          >
-            <PenLine size={13} className="mr-1.5" />
-            <span>Write the First Review</span>
-          </Button>
+          {isUserLoggedIn ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenWriteModal}
+              className="mt-2 border-[#3d332a] text-[#c9a87c] hover:bg-[#1a1714] text-xs uppercase tracking-widest cursor-pointer"
+            >
+              <PenLine size={13} className="mr-1.5" />
+              <span>Write the First Review</span>
+            </Button>
+          ) : (
+            <div className="mt-2 flex flex-col items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenWriteModal}
+                className="border-neutral-800 text-neutral-300 hover:text-white hover:border-[#c9a87c] hover:bg-[#1a1714] text-xs uppercase tracking-widest cursor-pointer"
+              >
+                <LogIn size={13} className="mr-1.5 text-[#c9a87c]" />
+                <span>Sign In to Review</span>
+              </Button>
+              <span className="text-[10px] text-neutral-500 font-mono">
+                Patron reflections require sign-in
+              </span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
